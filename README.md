@@ -4,7 +4,7 @@ Interactive tool for producing branded construction-timeline pages for client pr
 Left pane is the form, right pane is a live preview; the finished timeline exports as a
 standalone HTML file or a PDF.
 
-**Live tool:** https://USERNAME.github.io/bauablauf-editor/
+**Live tool:** https://ruvenH977.github.io/bauablauf-editor/
 
 ## What it does
 
@@ -72,3 +72,13 @@ GitHub Pages serves this repository directly from the default branch — there i
 pipeline. Push to `main` and the change is live within a minute or so.
 
 Settings → Pages → Source: *Deploy from a branch*, branch `main`, folder `/ (root)`.
+
+### Publishing a change
+
+Double-click **`publish.cmd`**. It stages everything, asks for a commit message (Enter
+accepts a default), and pushes. It adds the `origin` remote by itself the first time, and
+uses `-u` on the first push so later ones need no arguments. VS Code's Sync button in the
+Source Control panel does the same job.
+
+The very first push must happen from Windows so that Git Credential Manager can store your
+GitHub credentials; every push after that runs without prompting.

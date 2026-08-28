@@ -4,8 +4,11 @@ REM  Bauablauf Editor - publish to GitHub Pages
 REM  Double-click this file to push the current state of the folder.
 REM  The live site updates about a minute after a successful push.
 REM ---------------------------------------------------------------
-setlocal
+setlocal EnableDelayedExpansion
 cd /d "%~dp0"
+
+set "REPO_URL=https://github.com/ruvenH977/bauablauf-editor.git"
+set "BRANCH=main"
 
 echo.
 echo  Bauablauf Editor - publish
@@ -20,29 +23,45 @@ if errorlevel 1 (
   exit /b 1
 )
 
+REM --- make sure the remote exists; add it automatically if not ---
 git remote get-url origin >nul 2>&1
 if errorlevel 1 (
-  echo  ERROR: no 'origin' remote is configured yet.
+  echo  No 'origin' remote yet - adding it:
+  echo    %REPO_URL%
+  git remote add origin "%REPO_URL%"
+  if errorlevel 1 goto failed
   echo.
-  echo  Run this once, with your own GitHub username:
-  echo    git remote add origin https://github.com/USERNAME/bauablauf-editor.git
+)
+
+REM --- anything to publish? (covers new/untracked files too) ---
+set "DIRTY="
+for /f "delims=" %%i in ('git status --porcelain') do set "DIRTY=1"
+
+if not defined DIRTY (
+  echo  No local changes.
+  REM  still worth pushing if commits exist that the remote does not have
+  git rev-parse --abbrev-ref --symbolic-full-name @{u} >nul 2>&1
+  if errorlevel 1 (
+    echo  This branch has never been pushed - publishing it now.
+    echo.
+    goto dopush
+  )
+  for /f %%c in ('git rev-list --count @{u}..HEAD 2^>nul') do set "AHEAD=%%c"
+  if "!AHEAD!"=="0" (
+    echo  Everything is already published - nothing to do.
+    echo.
+    pause
+    exit /b 0
+  )
+  echo  !AHEAD! commit^(s^) not yet pushed - publishing them now.
   echo.
-  pause
-  exit /b 1
+  goto dopush
 )
 
 echo  Changes to publish:
 echo.
 git status --short
 echo.
-
-git diff --quiet && git diff --cached --quiet
-if not errorlevel 1 (
-  echo  Nothing has changed - there is nothing to publish.
-  echo.
-  pause
-  exit /b 0
-)
 
 set "MSG=%~1"
 if "%MSG%"=="" set /p "MSG=  Commit message (Enter for 'Update editor'): "
@@ -54,13 +73,21 @@ if errorlevel 1 goto failed
 git commit -m "%MSG%"
 if errorlevel 1 goto failed
 
-echo.
+:dopush
 echo  Pushing...
-git push
+
+REM  -u on the first push so later pushes need no arguments
+git rev-parse --abbrev-ref --symbolic-full-name @{u} >nul 2>&1
+if errorlevel 1 (
+  git push -u origin %BRANCH%
+) else (
+  git push
+)
 if errorlevel 1 goto failed
 
 echo.
-echo  Done. The live site updates in about a minute.
+echo  Done. The live site updates in about a minute:
+echo    https://ruvenH977.github.io/bauablauf-editor/
 echo.
 pause
 exit /b 0
@@ -68,7 +95,11 @@ exit /b 0
 :failed
 echo.
 echo  Something went wrong - see the message above.
-echo  If it mentions index.lock, delete the file .git\index.lock and try again.
+echo.
+echo  Common causes:
+echo    - The repository does not exist on GitHub yet. Create an empty one
+echo      named 'bauablauf-editor' (no README, no .gitignore, no licence).
+echo    - A stale lock file: delete .git\index.lock and try again.
 echo.
 pause
 exit /b 1
