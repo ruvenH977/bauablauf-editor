@@ -1,0 +1,13 @@
+# Generated client timelines — never commit these.
+# Client names and build schedules must not end up in this public repo.
+*_bauablauf.html
+*_bauablauf.pdf
+*.pdf
+
+# OS / editor cruft
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/
+.idea/
+*.swp

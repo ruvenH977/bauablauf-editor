@@ -1,0 +1,1456 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Bauablauf Editor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root {
+    --panel-bg: #2b2a29;
+    --panel-bg-2: #393737;
+    --panel-bg-3: #464343;
+    --panel-line: #3f3d3c;
+    --panel-text: #f1ece7;
+    --panel-muted: #9a938d;
+    --panel-accent: #a3775c;
+    --panel-accent-bright: #c7a688;
+    --panel-active: #5c4636;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: -apple-system, 'Segoe UI', Arial, sans-serif;
+    background: var(--panel-bg);
+    color: var(--panel-text);
+  }
+  .app {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+  }
+  .panel {
+    width: 380px;
+    min-width: 320px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    background: var(--panel-bg);
+    border-right: 1px solid var(--panel-line);
+    padding: 20px 20px 40px;
+  }
+  .panel h1 {
+    font-size: 16px;
+    margin: 0 0 20px;
+    color: var(--panel-text);
+  }
+  .field-group {
+    margin-bottom: 22px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid var(--panel-line);
+  }
+  .field-group:last-child { border-bottom: none; }
+  .field-group h2 {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--panel-muted);
+    margin: 0 0 12px;
+  }
+  label {
+    display: block;
+    font-size: 12.5px;
+    color: var(--panel-text);
+    margin-bottom: 4px;
+  }
+  .field { margin-bottom: 12px; }
+  .field:last-child { margin-bottom: 0; }
+  input[type="text"], select {
+    width: 100%;
+    background: var(--panel-bg-2);
+    border: 1px solid var(--panel-line);
+    color: var(--panel-text);
+    border-radius: 6px;
+    padding: 7px 9px;
+    font-size: 13px;
+    font-family: inherit;
+  }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .style-toggle {
+    display: flex;
+    gap: 8px;
+  }
+  .style-toggle button {
+    flex: 1;
+    padding: 9px 8px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-line);
+    background: var(--panel-bg-2);
+    color: var(--panel-muted);
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .style-toggle button.active {
+    border-color: var(--panel-accent);
+    color: #fff;
+    background: var(--panel-active);
+  }
+  .mode-toggle {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .mode-toggle button {
+    flex: 1;
+    padding: 7px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-line);
+    background: var(--panel-bg-2);
+    color: var(--panel-muted);
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .mode-toggle button.active {
+    border-color: var(--panel-accent);
+    color: #fff;
+    background: var(--panel-active);
+  }
+  .milestone-block {
+    background: var(--panel-bg-2);
+    border: 1px solid var(--panel-line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+  }
+  .milestone-block .name {
+    font-size: 12.5px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: var(--panel-text);
+  }
+  .kw-label { font-size: 10.5px; color: var(--panel-muted); margin-bottom: 2px; }
+  .downloads {
+    display: flex;
+    gap: 10px;
+  }
+  .downloads button {
+    flex: 1;
+    padding: 11px 8px;
+    border-radius: 8px;
+    border: none;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  #btn-html { background: var(--panel-accent); color: #fff; }
+  #btn-pdf { background: var(--panel-accent-bright); color: #2b2a29; }
+  .downloads button:active { transform: scale(0.98); }
+  .downloads button:disabled { opacity: 0.6; cursor: default; }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--panel-accent);
+  }
+  .reset-btn {
+    margin-top: 8px;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid var(--panel-line);
+    background: var(--panel-bg-2);
+    color: var(--panel-muted);
+    font-size: 11.5px;
+    cursor: pointer;
+  }
+  .reset-btn:hover { color: var(--panel-text); border-color: var(--panel-accent); }
+  .preview {
+    flex: 1;
+    background: #000;
+    position: relative;
+  }
+  .preview iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+    background: #fff;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <aside class="panel">
+    <h1>Bauablauf Editor</h1>
+
+    <div class="field-group">
+      <h2>Design</h2>
+      <div class="style-toggle">
+        <button id="style-mdh" class="active" type="button">MDH</button>
+        <button id="style-fh" type="button">freshhaus</button>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <h2>Projekt</h2>
+      <div class="field" id="field-project-name">
+        <label for="input-project-name">Projektname</label>
+        <input type="text" id="input-project-name" value="Musterprojekt">
+      </div>
+      <div class="row2" style="margin-top:12px;">
+        <div><div class="kw-label">Anrede</div><input type="text" id="input-anschrift-1" value="Familie"></div>
+        <div><div class="kw-label">Name</div><input type="text" id="input-anschrift-2" value="Muster"></div>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <h2>Meilensteine (Kalenderwoche &amp; Jahr)</h2>
+
+      <div class="milestone-block">
+        <div class="name">Werkvertrag</div>
+        <div class="row2">
+          <div><div class="kw-label">KW</div><input type="text" inputmode="numeric" id="ms-werkvertrag-week" value="20"></div>
+          <div><div class="kw-label">Jahr</div><input type="text" inputmode="numeric" id="ms-werkvertrag-year" value="2026"></div>
+        </div>
+      </div>
+
+      <div class="milestone-block">
+        <div class="name">Best&auml;tigung</div>
+        <div class="row2">
+          <div><div class="kw-label">KW</div><input type="text" inputmode="numeric" id="ms-bestaetigung-week" value="40"></div>
+          <div><div class="kw-label">Jahr</div><input type="text" inputmode="numeric" id="ms-bestaetigung-year" value="2026"></div>
+        </div>
+      </div>
+
+      <div class="milestone-block">
+        <div class="name">Planversand</div>
+        <div class="row2">
+          <div><div class="kw-label">KW</div><input type="text" inputmode="numeric" id="ms-planversand-week" value="4"></div>
+          <div><div class="kw-label">Jahr</div><input type="text" inputmode="numeric" id="ms-planversand-year" value="2027"></div>
+        </div>
+      </div>
+
+      <div class="milestone-block">
+        <div class="name">Baubeginn</div>
+        <div class="row2">
+          <div><div class="kw-label">KW</div><input type="text" inputmode="numeric" id="ms-baubeginn-week" value="10"></div>
+          <div><div class="kw-label">Jahr</div><input type="text" inputmode="numeric" id="ms-baubeginn-year" value="2027"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <h2>Jahreswechsel-Marker</h2>
+      <div class="milestone-block">
+        <div class="field">
+          <label for="year-label-dx">Text horizontal verschieben</label>
+          <input type="range" id="year-label-dx" min="-128" max="128" step="1" value="0">
+        </div>
+        <div class="field">
+          <label for="year-label-dy">Text nach unten verschieben</label>
+          <input type="range" id="year-label-dy" min="0" max="60" step="1" value="0">
+        </div>
+        <button type="button" id="year-label-reset" class="reset-btn">Zur&uuml;cksetzen</button>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <h2>Bemusterungstage</h2>
+      <div class="mode-toggle">
+        <button id="mode-single" type="button">Einzelne KW</button>
+        <button id="mode-range" class="active" type="button">KW-Bereich</button>
+      </div>
+      <div class="milestone-block">
+        <div class="row2">
+          <div><div class="kw-label" id="bem-start-label">Start KW</div><input type="text" inputmode="numeric" id="bem-start-week" value="26"></div>
+          <div><div class="kw-label">Jahr</div><input type="text" inputmode="numeric" id="bem-start-year" value="2026"></div>
+        </div>
+        <div class="row2" id="bem-end-row" style="margin-top:8px;">
+          <div><div class="kw-label">End KW</div><input type="text" inputmode="numeric" id="bem-end-week" value="30"></div>
+          <div><div class="kw-label">Jahr</div><input type="text" inputmode="numeric" id="bem-end-year" value="2026"></div>
+        </div>
+        <div class="field" style="margin-top:12px;">
+          <label for="bem-label-dx">Text horizontal verschieben</label>
+          <input type="range" id="bem-label-dx" min="-128" max="128" step="1" value="0">
+        </div>
+        <div class="field">
+          <label for="bem-label-dy">Text nach unten verschieben</label>
+          <input type="range" id="bem-label-dy" min="0" max="20" step="1" value="0">
+        </div>
+        <button type="button" id="bem-label-reset" class="reset-btn">Zur&uuml;cksetzen</button>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <h2>Export</h2>
+      <div class="downloads">
+        <button id="btn-html" type="button">&#8595; HTML</button>
+        <button id="btn-pdf" type="button">&#8595; PDF (A4)</button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="preview">
+    <iframe id="preview-frame" title="Vorschau"></iframe>
+  </main>
+</div>
+
+<script>
+(function () {
+
+  /* =====================================================================
+     CORE DATE MATH — shared by the editor AND embedded into every file
+     the editor generates (each exported HTML file is fully standalone).
+     ===================================================================== */
+
+  function isoWeekToMonday(year, week) {
+    const jan4 = new Date(Date.UTC(year, 0, 4));
+    const jan4Day = jan4.getUTCDay() || 7;
+    const week1Monday = new Date(jan4);
+    week1Monday.setUTCDate(jan4.getUTCDate() - (jan4Day - 1));
+    const target = new Date(week1Monday);
+    target.setUTCDate(week1Monday.getUTCDate() + (week - 1) * 7);
+    return target.getTime();
+  }
+
+  function weeksBetween(msA, msB) {
+    return Math.round((msB - msA) / (7 * 86400000));
+  }
+
+  const MONTHS_DE = ['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+
+  function monthLabelDE(ms) {
+    const d = new Date(ms);
+    const day = d.getUTCDate();
+    const month = MONTHS_DE[d.getUTCMonth()];
+    const bucket = day <= 10 ? 'Anfang' : (day <= 20 ? 'Mitte' : 'Ende');
+    return bucket + ' ' + month;
+  }
+
+  /* the JS that gets embedded verbatim inside every generated file
+     (drag-scroll, reveal-on-scroll, keyboard nav, today-dot + marker
+     positioning with auto label-avoidance so a marker's text never
+     sits on top of a milestone node) */
+  const RUNTIME_JS = function (opts) {
+    return `
+  (function () {
+    const wrap = document.getElementById('wrap');
+    const track = document.getElementById('track');
+    const fill = document.getElementById('fill');
+    const todayDot = document.getElementById('today-dot');
+    const todayBadge = document.getElementById('today-badge');
+    const yearMarker = document.getElementById('year-marker');
+    const bemusterungMarker = document.getElementById('bemusterung-marker');
+    const yearLabel = yearMarker ? yearMarker.querySelector('.ylabel') : null;
+    const phase1Step = document.getElementById('phase-ausarbeitung');
+    const phase1Card = document.getElementById('phase-ausarbeitung-card');
+    const phase1Stem = document.getElementById('phase-ausarbeitung-stem');
+    const bemusterungLabel = bemusterungMarker ? bemusterungMarker.querySelector('.ylabel') : null;
+    const bemusterungEndTick = bemusterungMarker ? bemusterungMarker.querySelector('.rtick.end') : null;
+    const bemusterungLine = bemusterungMarker ? bemusterungMarker.querySelector('.rline') : null;
+    const bemusterungStem = bemusterungMarker ? bemusterungMarker.querySelector('.rstem') : null;
+    const steps = Array.from(document.querySelectorAll('.step'));
+    const milestoneEls = Array.from(document.querySelectorAll('.milestone'));
+    const nodes = milestoneEls.map(m => m.querySelector('.node'));
+    const milestoneDates = milestoneEls.map(m => ({
+      year: parseInt(m.dataset.year, 10),
+      week: parseInt(m.dataset.week, 10)
+    }));
+    const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    /* true only inside the editor's own live-preview iframe and the
+       hidden frame used for PDF capture — both inject a tiny marker
+       script (window.__BAUABLAUF_SUPPRESS_INTRO__) ahead of this one
+       specifically to flip this off. Deliberately NOT based on "am I
+       in an iframe" (window.self !== window.top): the downloaded file
+       may itself be viewed inside an iframe — a preview panel, an
+       embed on someone's intranet page — and that must still animate,
+       so only this explicit, editor-set flag suppresses it. */
+    const suppressIntro = typeof window.__BAUABLAUF_SUPPRESS_INTRO__ !== 'undefined' && window.__BAUABLAUF_SUPPRESS_INTRO__ === true;
+
+    let isDown = false, startX = 0, startScroll = 0;
+    wrap.addEventListener('pointerdown', (e) => {
+      isDown = true;
+      wrap.classList.add('dragging');
+      startX = e.clientX;
+      startScroll = wrap.scrollLeft;
+    });
+    window.addEventListener('pointermove', (e) => {
+      if (!isDown) return;
+      wrap.scrollLeft = startScroll - (e.clientX - startX);
+    });
+    window.addEventListener('pointerup', () => { isDown = false; wrap.classList.remove('dragging'); });
+    wrap.addEventListener('pointerleave', () => { isDown = false; wrap.classList.remove('dragging'); });
+
+    function step(dir) {
+      wrap.scrollBy({ left: dir * 280, behavior: prefersReduced ? 'auto' : 'smooth' });
+    }
+    document.getElementById('btn-prev').addEventListener('click', () => step(-1));
+    document.getElementById('btn-next').addEventListener('click', () => step(1));
+
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) entry.target.classList.add('in-view');
+        });
+      }, { root: wrap, threshold: 0.3 });
+      steps.forEach(s => io.observe(s));
+    } else {
+      steps.forEach(s => s.classList.add('in-view'));
+    }
+
+    nodes.forEach((node, i) => {
+      node.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' && nodes[i + 1]) {
+          e.preventDefault();
+          nodes[i + 1].focus();
+          nodes[i + 1].scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', inline: 'center', block: 'nearest' });
+        } else if (e.key === 'ArrowLeft' && nodes[i - 1]) {
+          e.preventDefault();
+          nodes[i - 1].focus();
+          nodes[i - 1].scrollIntoView({ behavior: prefersReduced ? 'auto' : 'smooth', inline: 'center', block: 'nearest' });
+        }
+      });
+    });
+
+    function isoWeekInfo(date) {
+      const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      const dayNum = d.getUTCDay() || 7;
+      d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+      return { week: week, isoDay: dayNum };
+    }
+
+    function isoWeekToMonday(year, week) {
+      const jan4 = new Date(Date.UTC(year, 0, 4));
+      const jan4Day = jan4.getUTCDay() || 7;
+      const week1Monday = new Date(jan4);
+      week1Monday.setUTCDate(jan4.getUTCDate() - (jan4Day - 1));
+      const target = new Date(week1Monday);
+      target.setUTCDate(week1Monday.getUTCDate() + (week - 1) * 7);
+      return target.getTime();
+    }
+
+    const milestoneMs = milestoneDates.map(d => isoWeekToMonday(d.year, d.week));
+    ${opts.yearMarkerJs}
+    ${opts.bemusterungJs}
+    ${opts.bemLabelOffsetJs}
+    ${opts.yearLabelOffsetJs}
+
+    const LABEL_MIN_GAP = 120; // px — keep marker text at least this far from any milestone node
+
+    function interpolateX(targetMs, points) {
+      if (targetMs <= points[0].ms) return points[0].x;
+      if (targetMs >= points[points.length - 1].ms) return points[points.length - 1].x;
+      for (let i = 0; i < points.length - 1; i++) {
+        if (targetMs >= points[i].ms && targetMs <= points[i + 1].ms) {
+          const span = points[i + 1].ms - points[i].ms;
+          const t = span > 0 ? (targetMs - points[i].ms) / span : 0;
+          return points[i].x + t * (points[i + 1].x - points[i].x);
+        }
+      }
+      return points[points.length - 1].x;
+    }
+
+    /* only the LABEL gets nudged away from the nearest milestone node —
+       the tick itself always stays exactly on its real calendar date */
+    function computeLabelOffset(x, milestoneXs, minGap) {
+      let nearest = null, nearestDist = Infinity;
+      milestoneXs.forEach(mx => {
+        const d = Math.abs(x - mx);
+        if (d < nearestDist) { nearestDist = d; nearest = mx; }
+      });
+      if (nearest === null || nearestDist >= minGap) return 0;
+      const dir = x >= nearest ? 1 : -1;
+      return dir * (minGap - nearestDist);
+    }
+
+    let todayIntroStarted = false;
+
+    function updateTodayDot() {
+      const now = new Date();
+      const nowMs = now.getTime();
+      const info = isoWeekInfo(now);
+
+      if (todayBadge) {
+        todayBadge.innerHTML = '<span class="pip"></span>Heute &middot; KW <b>' + info.week + '</b>';
+      }
+
+      const trackRect = track.getBoundingClientRect();
+      const points = nodes.map((node, i) => {
+        const r = node.getBoundingClientRect();
+        return { ms: milestoneMs[i], x: (r.left + r.width / 2) - trackRect.left };
+      });
+      if (!points.length) return;
+      const milestoneXs = points.map(p => p.x);
+
+      const x = interpolateX(nowMs, points);
+      todayDot.title = 'Heute · KW ' + info.week;
+
+      /* the real (final, correct) position is always applied directly —
+         that way resize / font-load recalculations just keep it accurate
+         with no special-casing. The slide-in is a separate, purely
+         decorative effect layered on top via the Web Animations API
+         (not a CSS-transition-on-first-paint trick, which is unreliable:
+         whether it plays at all depends on exact browser paint/rAF
+         timing around page load, and in practice it often got skipped
+         entirely). el.animate() runs independently of style/layout
+         timing and always plays, so it fires once, right when the real
+         "today" position is first known, and is left alone after that —
+         later recalculations only touch the plain style, never replay it. */
+      todayDot.style.left = x + 'px';
+      fill.style.width = x + 'px';
+
+      /* not gated on prefers-reduced-motion: this one-shot entrance is the
+         same motion the progress line and the markers already make under
+         that setting (see the matching CSS note), so skipping it only for
+         the dot made it snap while everything around it glided. */
+      if (!todayIntroStarted) {
+        todayIntroStarted = true;
+        if (!suppressIntro && typeof todayDot.animate === 'function') {
+          todayDot.animate([{ left: '0px' }, { left: x + 'px' }], { duration: 700, easing: 'ease' });
+          fill.animate([{ width: '0px' }, { width: x + 'px' }], { duration: 700, easing: 'ease' });
+        }
+      }
+
+      if (yearMarker) {
+        const yx = interpolateX(yearStartMs, points);
+        yearMarker.style.left = yx + 'px';
+        if (yearLabel) {
+          yearLabel.style.transform = 'translateX(-50%) translateY(' + YEAR_LABEL_DY + 'px)';
+          yearLabel.style.left = YEAR_LABEL_DX + 'px';
+        }
+      }
+
+      if (bemusterungMarker) {
+        if (bemusterungLabel) bemusterungLabel.style.transform = 'translateX(-50%) translateY(' + BEM_LABEL_DY + 'px)';
+        if (BEMUSTERUNG_MODE === 'range') {
+          const bStartX = interpolateX(bemusterungStartMs, points);
+          const bEndX = interpolateX(bemusterungEndMs, points);
+          const bWidth = bEndX - bStartX;
+          bemusterungMarker.style.left = bStartX + 'px';
+          if (bemusterungEndTick) bemusterungEndTick.style.left = bWidth + 'px';
+          if (bemusterungLine) bemusterungLine.style.width = bWidth + 'px';
+          const mid = bWidth / 2;
+          if (bemusterungStem) bemusterungStem.style.left = mid + 'px';
+          const off = computeLabelOffset(bStartX + mid, milestoneXs, LABEL_MIN_GAP);
+          if (bemusterungLabel) bemusterungLabel.style.left = (mid + off + BEM_LABEL_DX) + 'px';
+        } else {
+          const bx = interpolateX(bemusterungMs, points);
+          bemusterungMarker.style.left = bx + 'px';
+          if (bemusterungLabel) bemusterungLabel.style.left = (computeLabelOffset(bx, milestoneXs, LABEL_MIN_GAP) + BEM_LABEL_DX) + 'px';
+        }
+      }
+
+      /* "Ausarbeitung Bestätigung" is centered between the Bemusterungstage
+         marker (its end date when it's a range, its single date otherwise)
+         and the Bestätigung milestone — not just centered in its own fixed
+         grid column — so it always tracks wherever those two real dates fall. */
+      if (phase1Step && phase1Card && phase1Stem && typeof BEMUSTERUNG_MODE !== 'undefined') {
+        const bemAnchorMs = BEMUSTERUNG_MODE === 'range' ? bemusterungEndMs : bemusterungMs;
+        const bemAnchorX = interpolateX(bemAnchorMs, points);
+        const bestaetigungX = points[1].x;
+        const midX = (bemAnchorX + bestaetigungX) / 2;
+        const stepRect = phase1Step.getBoundingClientRect();
+        const curCenterX = (stepRect.left - trackRect.left) + stepRect.width / 2;
+        const delta = midX - curCenterX;
+        phase1Card.style.transform = 'translateX(-50%) translateX(' + delta + 'px)';
+        phase1Stem.style.transform = 'translateX(-1px) translateX(' + delta + 'px)';
+      }
+
+      steps.forEach((s) => {
+        const r = s.getBoundingClientRect();
+        const centerX = (r.left + r.width / 2) - trackRect.left;
+        s.classList.toggle('reached', centerX <= x + 0.5);
+      });
+    }
+
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(updateTodayDot, 120);
+    });
+
+    updateTodayDot();
+    window.addEventListener('load', updateTodayDot);
+    setTimeout(updateTodayDot, 300);
+  })();
+`;
+  };
+
+  /* =====================================================================
+     SHARED CSS — the marker + baseline rules are identical for both
+     skins (only colors differ, injected via the CSS custom properties
+     each theme block already defines).
+     ===================================================================== */
+
+  const MARKER_CSS = `
+  .marker {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    z-index: -1;
+    pointer-events: none;
+    transition: left 0.6s ease;
+  }
+
+  .marker .ylabel { transition: left 0.6s ease; }
+
+  .marker .tick {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 0;
+    height: 22px;
+    border-left: 2.5px solid var(--line);
+    transform: translateX(-0.5px);
+  }
+
+  .marker .ylabel {
+    position: absolute;
+    top: 24px;
+    left: 0;
+    transform: translateX(-50%);
+    font-family: var(--font-display);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--stone);
+    white-space: nowrap;
+  }
+
+  .marker.wide .ylabel {
+    white-space: normal;
+    width: 128px;
+    text-align: center;
+    line-height: 1.4;
+  }
+
+  .marker.range .tick { display: none; }
+
+  .marker.range .rtick {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 20px;
+    border-left: 2.5px solid var(--line);
+    transform: translateX(-0.5px);
+  }
+
+  .marker.range .rline {
+    position: absolute;
+    top: 18px;
+    left: 0;
+    height: 0;
+    border-top: 2.5px solid var(--line);
+  }
+
+  .marker.range .rstem {
+    position: absolute;
+    top: 18px;
+    left: 0;
+    width: 0;
+    height: 10px;
+    border-left: 2.5px solid var(--line);
+    transform: translateX(-0.5px);
+  }
+
+  .marker.range .ylabel {
+    top: 28px;
+    left: 0;
+  }
+  `;
+
+  const MARKER_CSS_MOBILE = `
+    .marker .tick { height: 20px; }
+    .marker .ylabel { top: 26px; }
+    .marker.wide .ylabel { width: 104px; font-size: 9px; }
+    .marker.range .rtick { height: 9px; }
+    .marker.range .rline { top: 9px; }
+    .marker.range .rstem { top: 9px; height: 15px; }
+    .marker.range .ylabel { top: 28px; }
+  `;
+
+  const MDH_LOGO_HTML = `<svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 167.62 40.03">
+          <defs>
+            <style>
+              .cls-2 { fill:#a3775c; }
+            </style>
+          </defs>
+          <g class="cls-3">
+            <path class="cls-2" d="m154.92,31.57c-.65-.94-1.9-1.63-3.48-1.63-2.07,0-3.53,1.16-3.53,2.8,0,3.36,5.08,2.52,5.08,4.39,0,.69-.59,1.12-1.64,1.12s-1.85-.41-2.46-1.21l-1.34,1.25c.63.95,1.8,1.73,3.77,1.73,2.22,0,3.69-1.25,3.69-3,0-3.39-5.08-2.62-5.08-4.34,0-.57.53-.96,1.43-.96.99,0,1.84.53,2.26,1.13l1.3-1.28Zm-17.11,4.31c0,2.49,1.57,4.15,3.93,4.15s3.97-1.66,3.97-4.15v-5.73h-1.88v5.71c0,1.37-.81,2.28-2.05,2.28s-2.08-.92-2.08-2.29v-5.7h-1.88v5.73Zm-4.91.09h-2.95l1.48-3.83,1.48,3.83Zm1.48,3.84h2.09l-3.89-9.66h-2.2l-3.89,9.66h1.98l.84-2.17h4.24l.83,2.17Zm-11.47,0h1.9v-9.66h-1.9v3.85h-4.6v-3.85h-1.88v9.66h1.88v-4.05h4.6v4.05Z"/><path class="cls-2" d="m165.59,24.74h2.03v-9.66h-1.88v6.62l-4.51-6.62h-2.04v9.66h1.88v-6.54l4.51,6.54Zm-8.73-.84v-3.93h-1.88v2.73c-.48.24-1.04.38-1.63.38-1.78,0-3.09-1.42-3.09-3.15s1.31-3.17,2.97-3.17c.96,0,1.73.38,2.31.88l1.25-1.43c-.81-.81-1.95-1.33-3.57-1.33-2.74,0-4.96,2.26-4.96,5.05s2.14,5.04,4.96,5.04c1.58,0,2.79-.41,3.65-1.06m-12.6.84h1.88v-9.66h-1.88v9.66Zm-2.08-8.25c-.65-.94-1.9-1.63-3.48-1.63-2.07,0-3.53,1.16-3.53,2.8,0,3.36,5.08,2.52,5.08,4.39,0,.69-.59,1.12-1.64,1.12s-1.86-.41-2.46-1.21l-1.34,1.25c.63.95,1.79,1.73,3.77,1.73,2.22,0,3.7-1.25,3.7-3,0-3.39-5.08-2.62-5.08-4.34,0-.57.53-.96,1.43-.96.99,0,1.84.53,2.26,1.13l1.3-1.28Zm-14.99,8.25h6.26v-1.78h-4.37v-2.2h3.77v-1.78h-3.77v-2.14h4.37v-1.76h-6.26v9.66Zm-7.58-7.88c2.08,0,3.45,1.21,3.45,3.04s-1.37,3.06-3.44,3.06h-1.28v-6.11h1.27Zm-3.2,7.88h3.29c3.14,0,5.38-2,5.38-4.81s-2.28-4.85-5.46-4.85h-3.21v9.66Z"/><path class="cls-2" d="m160.37,9.66h1.89v-3.21L165.82,0h-1.99l-2.47,4.46L158.91,0h-2.1l3.56,6.45v3.21Zm-4.25-7.9V0h-7.63v1.76h2.87v7.9h1.88V1.76h2.88Zm-12.51-.11c.99,0,1.64.56,1.64,1.39s-.65,1.4-1.64,1.4h-1.7V1.66h1.7Zm-3.59,8.01h1.88v-3.56h1.39l1.98,3.56h2.19l-2.25-3.85c1.27-.47,2.04-1.45,2.04-2.77C147.24,1.21,145.74,0,143.46,0h-3.44v9.66Zm-5.28-3.85h-2.95l1.48-3.83,1.48,3.83Zm1.48,3.85h2.1L134.43,0h-2.2l-3.89,9.66h1.97l.84-2.17h4.24l.83,2.17Zm-14.7-1.82l3.24-4.9v6.72h1.88V0h-1.93l-3.08,4.79L118.57,0h-2.15v9.66h1.88V2.97l3.23,4.87Z"/><path class="cls-2" d="m48.71.21h-6.12s-1.91,0-1.91,0v5.28h8.15c9.88,0,16.34,5.78,16.34,14.6s-6.46,14.6-16.34,14.6h-6.24s-1.91,0-1.91,0v5.28h1.91s6.68,0,6.68,0c12.92,0,21.87-8.14,21.87-19.88S61.95.21,48.71.21"/><polygon class="cls-2" points="101.57 .12 101.57 9.1 101.57 17.17 81.5 17.17 81.5 9.22 81.5 .28 75.93 .28 75.93 39.91 81.5 39.91 81.5 32.35 81.5 22.73 101.57 22.73 101.57 32.32 101.57 39.91 107.14 39.91 107.14 .12 101.57 .12"/><polygon class="cls-2" points="28.74 .06 17.07 10.25 5.43 .09 0 .09 0 39.96 5.43 39.96 5.42 7.29 17.09 17.54 28.74 7.28 28.74 39.93 34.17 39.93 34.17 .06 28.74 .06"/>
+          </g>
+        </svg>`;
+
+  const FH_LOGO_HTML = `<svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 283.46 48.36">
+          <defs>
+            <style>
+              .cls-1 { fill:#96c814; }
+              .cls-2 { fill:#1d1e1c; stroke:#97c01e; stroke-width:9.65px; }
+            </style>
+          </defs>
+          <g id="Logo">
+            <path d="M96.62,57.37c-5.91,0-9.56-3.53-9.83-8.95h23.85c.39-11-5.58-17.83-15.12-17.83S79.78,37.88,79.78,46.93c0,9.89,6.34,16.46,16.29,16.46,5.46,0,9.83-1.44,13.75-5.47l-4.1-4.58C103.63,56.11,99.93,57.37,96.62,57.37Zm-1.1-20.71c3.86,0,7.06,1.88,7.84,6.63H87C87.9,39.09,91.15,36.66,95.52,36.66Z" transform="translate(-31.75 -15.08)"></path>
+            <path class="cls-1" d="M64.15,21.94c-3.62-4.58-7.68-6.7-12.83-6.85-8.63-.25-16.18,5.09-16.18,16.19v2.84h0v2.29h-3.4v5.51h3.38V62.56h7V42.28h13v-6H42.22v-5.4c0-6,3.89-9.27,9.1-9.11,3,.09,5.53,1.14,7.88,4.41Z" transform="translate(-31.75 -15.08)"></path>
+            <path d="M277.78,31.36V48.42a8.27,8.27,0,0,1-8.56,8.45c-4.36,0-6.46-2.65-6.46-7.51v-18h-7V52c0,7.62,5,11.32,11.93,11.32,4.36,0,8.39-1.6,10.82-5.08l.72,4.31h5.58V31.36Z" transform="translate(-31.75 -15.08)"></path>
+            <path d="M243.13,31.36l-.28,4.09a13.29,13.29,0,0,0-10.77-4.92c-8.55,0-15.46,6.69-15.46,16.52,0,10,7.07,16.4,15.3,16.4a14,14,0,0,0,10.93-4.92l.28,4h6.18V31.36Zm-10,25.73c-5.64,0-9.17-4.13-9.17-10s3.65-10.11,9.17-10.11S242.29,41,242.29,47,238.82,57.09,233.13,57.09Z" transform="translate(-31.75 -15.08)"></path>
+            <path d="M200.1,30.7a14.31,14.31,0,0,0-11.54,5.8V18.44h-7V62.56h7V43.29a10.82,10.82,0,0,1,9.56-6c4.14,0,6.51,2.15,6.51,6.85V62.56h7V41.36c0-6.19-4.41-10.66-11.54-10.66" transform="translate(-31.75 -15.08)"></path>
+            <path d="M163.78,30.7a14.31,14.31,0,0,0-11.54,5.8V18.44h-7V62.56h7V43.29a10.81,10.81,0,0,1,9.55-6c4.15,0,6.52,2.15,6.52,6.85V62.56h7V41.36c0-6.19-4.41-10.66-11.54-10.66" transform="translate(-31.75 -15.08)"></path>
+            <path class="cls-2" d="M65.74,28.68" transform="translate(-31.75 -15.08)"></path><path d="M67.74,37.1V31.36h-7v31.2h7V43.45c1.88-3.37,4.91-5.46,9.72-5.24l.11-7.57c-3.87.11-7.4,2.38-9.83,6.46" transform="translate(-31.75 -15.08)"></path>
+            <path d="M127.32,63.33c7.68,0,12.92-3.92,12.92-10.16S134.72,45,131,44.12L126.11,43c-2-.44-3.92-1.11-3.92-3.32s1.93-3.25,4.91-3.25a10.74,10.74,0,0,1,8.05,3.51L139,35.06a16.16,16.16,0,0,0-11.48-4.47c-7.13,0-12,3.42-12,9.38s4.47,8.12,8.94,9.17l4.59,1c1.71.39,4.42.94,4.42,3.53s-2.77,3.87-6.19,3.87a9.78,9.78,0,0,1-8.48-4.44l-4.83,4.16c3.65,4.7,8.18,6,13.42,6" transform="translate(-31.75 -15.08)"></path>
+            <path d="M302.3,63.33c7.67,0,12.92-3.92,12.92-10.16S309.7,45,306,44.12L301.08,43c-2-.44-3.92-1.11-3.92-3.32s1.93-3.25,4.92-3.25a10.76,10.76,0,0,1,8.05,3.51L314,35.06a16.18,16.18,0,0,0-11.49-4.47c-7.12,0-12,3.42-12,9.38s4.48,8.12,8.95,9.17l4.58,1c1.72.39,4.42.94,4.42,3.53s-2.76,3.87-6.18,3.87a9.81,9.81,0,0,1-8.49-4.44l-4.82,4.16c3.64,4.7,8.17,6,13.42,6" transform="translate(-31.75 -15.08)"></path>
+          </g>
+        </svg>`;
+
+  const ICONS = {
+    werkvertrag: `<path d="M4 20l4.5-1 10-10-3.5-3.5-10 10L4 20z"/><path d="M13 6.5L16.5 10"/>`,
+    bestaetigung: `<path d="M4 20l4.5-1 10-10-3.5-3.5-10 10L4 20z"/><path d="M13 6.5L16.5 10"/>`,
+    planversand: `<path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4z"/>`,
+    baubeginn: `<path d="M4 21h16M4 21V10l8-6 8 6v11M9 21v-6h6v6"/>`
+  };
+
+  const DESCRIPTIONS = {
+    mdh: {
+      werkvertrag: 'Der Werkvertrag wird unterschrieben und der Bauablauf startet offiziell.',
+      bestaetigung: 'Die getroffene Auswahl wird schriftlich best&auml;tigt und zur Ausf&uuml;hrung freigegeben.',
+      planversand: 'Die Ausf&uuml;hrungspl&auml;ne werden an die beteiligten Unternehmer &uuml;bermittelt.',
+      baubeginn: 'Aus Pl&auml;nen wird Realit&auml;t &mdash; die Bauarbeiten f&uuml;r Ihr neues Zuhause starten.'
+    },
+    fh: {
+      werkvertrag: 'Der Werkvertrag wird unterschrieben und der Bauablauf startet offiziell.',
+      bestaetigung: 'Die getroffene Auswahl wird schriftlich best&auml;tigt und zur Ausf&uuml;hrung freigegeben.',
+      planversand: 'Die Ausf&uuml;hrungspl&auml;ne werden an die Unternehmer &uuml;bermittelt.',
+      baubeginn: 'Aus Pl&auml;nen wird Realit&auml;t &mdash; die Bauarbeiten f&uuml;r Ihr neues Zuhause starten jetzt.'
+    }
+  };
+
+  const EYEBROWS = {
+    werkvertrag: 'Werkvertrag',
+    bestaetigung: 'Best&auml;tigung',
+    planversand: 'Planversand',
+    baubeginn: 'Baubeginn'
+  };
+
+  const PHASE_LABELS = {
+    mdh: ['Ausarbeitung Best&auml;tigung', 'Ausf&uuml;hrungsplanung &amp; Submission', 'Vorbereitung Baubeginn'],
+    fh: ['ausarbeitung Best&auml;tigung', 'Ausf&uuml;hrungsplanung &amp; Submission', 'Vorbereitung Baubeginn']
+  };
+  const STEP_WIDTHS = { first: 190, spacer: 150, phase1: 270, mid: 190, phase2: 220, phase3: 70, last: 190 };
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  function anschriftText(state) {
+    const p1 = (state.anschriftPart1 || '').trim();
+    const p2 = (state.anschriftPart2 || '').trim();
+    return [p1, p2].filter(Boolean).join(' ');
+  }
+
+  function bemusterungMarkerHtml(state) {
+    if (state.bemusterung.mode === 'range') {
+      return `<div class="marker wide range" id="bemusterung-marker"><span class="rtick start"></span><span class="rtick end"></span><span class="rline"></span><span class="rstem"></span><span class="ylabel">Bemusterungstage<br>KW ${state.bemusterung.startWeek}&ndash;${state.bemusterung.endWeek}</span></div>`;
+    }
+    return `<div class="marker wide" id="bemusterung-marker"><span class="tick"></span><span class="ylabel">Bemusterungstage<br>KW ${state.bemusterung.startWeek}</span></div>`;
+  }
+
+  function bemusterungJs(state) {
+    if (state.bemusterung.mode === 'range') {
+      return `const BEMUSTERUNG_MODE = 'range';
+    const bemusterungStartMs = isoWeekToMonday(${state.bemusterung.startYear}, ${state.bemusterung.startWeek});
+    const bemusterungEndMs = isoWeekToMonday(${state.bemusterung.endYear}, ${state.bemusterung.endWeek + 1});`;
+    }
+    return `const BEMUSTERUNG_MODE = 'single';
+    const bemusterungMs = isoWeekToMonday(${state.bemusterung.startYear}, ${state.bemusterung.startWeek});`;
+  }
+
+  function bemLabelOffsetJs(state) {
+    const dx = state.bemLabelDX || 0;
+    const dy = state.bemLabelDY || 0;
+    return `const BEM_LABEL_DX = ${dx};
+    const BEM_LABEL_DY = ${dy};`;
+  }
+
+  function yearMarkerJs(state) {
+    const years = [state.milestones.werkvertrag.year, state.milestones.bestaetigung.year, state.milestones.planversand.year, state.milestones.baubeginn.year];
+    const minY = Math.min.apply(null, years);
+    const maxY = Math.max.apply(null, years);
+    if (maxY === minY) return 'const yearStartMs = null;';
+    return `const yearStartMs = Date.UTC(${maxY}, 0, 1);`;
+  }
+
+  function hasYearChange(state) {
+    const years = [state.milestones.werkvertrag.year, state.milestones.bestaetigung.year, state.milestones.planversand.year, state.milestones.baubeginn.year];
+    return Math.min.apply(null, years) !== Math.max.apply(null, years);
+  }
+
+  function yearLabelOffsetJs(state) {
+    const dx = state.yearLabelDX || 0;
+    const dy = state.yearLabelDY || 0;
+    return `const YEAR_LABEL_DX = ${dx};
+    const YEAR_LABEL_DY = ${dy};`;
+  }
+
+  function milestoneStepHtml(style, key, idx, width, m, baseYear) {
+    const info = m;
+    const monthLabel = monthLabelDE(isoWeekToMonday(info.year, info.week));
+    const yearSuffix = info.year !== baseYear ? (' ' + info.year) : '';
+    return `      <div class="step milestone" data-index="${idx}" data-year="${info.year}" data-week="${info.week}" style="--w:${width}px">
+        <div class="card">
+          <span class="eyebrow">${EYEBROWS[key]}</span>
+          <span class="value">KW ${info.week}</span>
+          <span class="month">${monthLabel}</span>
+          <p class="desc">${DESCRIPTIONS[style][key]}</p>
+        </div>
+        <div class="stem"></div>
+        <div class="node" tabindex="0" aria-label="KW ${info.week}${yearSuffix} &ndash; ${EYEBROWS[key]}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${ICONS[key]}</svg>
+        </div>
+      </div>
+`;
+  }
+
+  function phaseStepHtml(idx, width, label, weeks, ids) {
+    const stepId = ids ? ` id="${ids.step}"` : '';
+    const cardId = ids ? ` id="${ids.card}"` : '';
+    const stemId = ids ? ` id="${ids.stem}"` : '';
+    return `      <div class="step phase" data-index="${idx}" style="--w:${width}px"${stepId}>
+        <div class="stem"${stemId}></div>
+        <div class="card"${cardId}>
+          <span class="eyebrow">${label}</span>
+          <span class="value">${weeks} Wochen</span>
+        </div>
+      </div>
+`;
+  }
+
+  function buildTimelineBody(state) {
+    const m = state.milestones;
+    const style = state.style;
+    const baseYear = m.werkvertrag.year;
+    const phaseLabels = PHASE_LABELS[style];
+    const wvMs = isoWeekToMonday(m.werkvertrag.year, m.werkvertrag.week);
+    const bsMs = isoWeekToMonday(m.bestaetigung.year, m.bestaetigung.week);
+    const pvMs = isoWeekToMonday(m.planversand.year, m.planversand.week);
+    const bbMs = isoWeekToMonday(m.baubeginn.year, m.baubeginn.week);
+    const w1 = weeksBetween(wvMs, bsMs);
+    const w2 = weeksBetween(bsMs, pvMs);
+    const w3 = weeksBetween(pvMs, bbMs);
+
+    let html = '';
+    html += `      <div class="baseline"><div class="fill" id="fill"></div></div>\n`;
+    html += `      <div class="today-dot" id="today-dot" title="Heute"><span class="label">Heute</span></div>\n`;
+    if (hasYearChange(state)) {
+      html += `      <div class="marker" id="year-marker"><span class="tick"></span><span class="ylabel">${Math.max(m.werkvertrag.year, m.bestaetigung.year, m.planversand.year, m.baubeginn.year)}</span></div>\n`;
+    }
+    html += `      ${bemusterungMarkerHtml(state)}\n\n`;
+    html += milestoneStepHtml(style, 'werkvertrag', 0, STEP_WIDTHS.first, m.werkvertrag, baseYear);
+    html += `\n      <div class="step" style="--w:${STEP_WIDTHS.spacer}px"></div>\n\n`;
+    html += phaseStepHtml(2, STEP_WIDTHS.phase1, phaseLabels[0], w1, { step: 'phase-ausarbeitung', card: 'phase-ausarbeitung-card', stem: 'phase-ausarbeitung-stem' });
+    html += '\n';
+    html += milestoneStepHtml(style, 'bestaetigung', 3, STEP_WIDTHS.mid, m.bestaetigung, baseYear);
+    html += '\n';
+    html += phaseStepHtml(4, STEP_WIDTHS.phase2, phaseLabels[1], w2);
+    html += '\n';
+    html += milestoneStepHtml(style, 'planversand', 5, STEP_WIDTHS.mid, m.planversand, baseYear);
+    html += '\n';
+    html += phaseStepHtml(6, STEP_WIDTHS.phase3, phaseLabels[2], w3);
+    html += '\n';
+    html += milestoneStepHtml(style, 'baubeginn', 7, STEP_WIDTHS.last, m.baubeginn, baseYear);
+    return html;
+  }
+
+  /* =====================================================================
+     MDH (dark / copper) template
+     ===================================================================== */
+
+  function buildMDH(state) {
+    const anschrift = esc(anschriftText(state) || 'Familie Muster');
+    const project = esc(state.projectName || 'Musterprojekt');
+    return `<title>${project} Bauablauf</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600;700;800&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  @font-face { font-family: 'Volte'; src: url('https://www.marty-designhaus.ch/typo3conf/ext/bootup/Resources/Public/Fonts/Volte/Volte-Regular.woff') format('woff'); font-weight: 400; font-display: swap; }
+  @font-face { font-family: 'Volte'; src: url('https://www.marty-designhaus.ch/typo3conf/ext/bootup/Resources/Public/Fonts/Volte/Volte-Medium.woff') format('woff'); font-weight: 500; font-display: swap; }
+  @font-face { font-family: 'Volte'; src: url('https://www.marty-designhaus.ch/typo3conf/ext/bootup/Resources/Public/Fonts/Volte/Volte-Semibold.woff') format('woff'); font-weight: 600; font-display: swap; }
+  @font-face { font-family: 'Volte'; src: url('https://www.marty-designhaus.ch/typo3conf/ext/bootup/Resources/Public/Fonts/Volte/Volte-Bold.woff') format('woff'); font-weight: 700; font-display: swap; }
+
+  :root {
+    --bg: #2b2a29; --bg-panel: #393737; --bg-panel-hover: #464343;
+    --copper: #a3775c; --copper-bright: #c7a688; --copper-deep: #725340;
+    --white: #f1ece7; --stone: #9a938d; --line: #3f3d3c; --focus: #c7a688;
+    --font-display: 'Volte', 'Archivo Expanded', 'Arial Narrow', sans-serif;
+    --font-body: 'Work Sans', -apple-system, 'Segoe UI', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--white); font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+  body { min-height: 100vh; display: flex; flex-direction: column; background-image: radial-gradient(ellipse 900px 500px at 12% -10%, rgba(163,119,92,0.10), transparent 60%), radial-gradient(ellipse 700px 500px at 100% 110%, rgba(163,119,92,0.07), transparent 60%); }
+
+  header { padding: clamp(28px, 5vw, 56px) clamp(20px, 6vw, 72px) 8px; max-width: 1400px; width: 100%; margin: 0 auto; }
+  .wordmark { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
+  .wordmark .logo { height: 27px; width: auto; display: block; }
+  h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(62px, 6.8vw, 96px); line-height: 1.02; margin: 0 0 10px; text-wrap: balance; color: var(--copper); text-transform: uppercase; letter-spacing: 0.01em; }
+  .subhead { max-width: 52ch; color: var(--stone); font-size: 14px; line-height: 1.55; margin: 0; }
+  .subhead-lead { display: block; color: var(--white); font-size: 15.5px; margin-bottom: 6px; }
+
+  .nav-hint { display: flex; align-items: center; gap: 10px; margin-top: 28px; color: var(--stone); font-size: 12.5px; letter-spacing: 0.04em; text-transform: uppercase; flex-wrap: wrap; }
+  .nav-hint .keys { display: inline-flex; gap: 4px; }
+  .nav-hint kbd { font-family: var(--font-body); font-size: 11px; color: var(--white); background: var(--bg-panel); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; }
+  .today-badge { display: inline-flex; align-items: center; gap: 7px; margin-left: 4px; padding: 3px 10px 3px 8px; border-radius: 999px; background: var(--bg-panel); border: 1px solid var(--line); color: var(--white); font-size: 11.5px; letter-spacing: 0.03em; }
+  .today-badge .pip { width: 8px; height: 8px; border-radius: 50%; background: var(--copper-bright); box-shadow: 0 0 0 3px rgba(199,166,136,0.25); flex-shrink: 0; }
+  .today-badge b { color: var(--copper-bright); font-weight: 600; }
+
+  .controls { display: flex; align-items: center; gap: 16px; margin-left: auto; }
+  .scroll-btn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--bg-panel); color: var(--white); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease; flex-shrink: 0; }
+  .scroll-btn:hover { background: var(--bg-panel-hover); border-color: var(--copper-deep); }
+  .scroll-btn:active { transform: scale(0.94); }
+  .scroll-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .scroll-btn svg { width: 16px; height: 16px; }
+  .header-row { display: flex; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+
+  .timeline-section { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 24px 0 20px; }
+  .timeline-wrap { overflow-x: auto; overflow-y: hidden; cursor: grab; scrollbar-width: none; -webkit-overflow-scrolling: touch; -ms-overflow-style: none; mask-image: linear-gradient(to right, transparent 0, black 40px, black calc(100% - 40px), transparent 100%); padding: 12px clamp(20px, 6vw, 72px); }
+  .timeline-wrap.dragging { cursor: grabbing; }
+  .timeline-wrap::-webkit-scrollbar { display: none; }
+  .timeline-track { position: relative; display: grid; grid-auto-flow: column; column-gap: 20px; height: 570px; width: max-content; padding: 0 40px; margin: 0 auto; }
+
+  .baseline { position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: var(--line); transform: translateY(-1px); z-index: 0; }
+  .baseline .fill { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: linear-gradient(90deg, var(--copper-deep), var(--copper)); transition: width 0.6s ease; }
+
+  .today-dot { position: absolute; top: 50%; left: 0; width: 15px; height: 15px; margin-left: -7.5px; margin-top: -7.5px; border-radius: 50%; background: var(--copper-bright); border: 2px solid var(--bg); box-shadow: 0 0 0 4px rgba(199,166,136,0.28); z-index: 3; transition: left 0.6s ease; }
+  .today-dot::before { content: ''; position: absolute; inset: -7px; border-radius: 50%; border: 1px solid rgba(199,166,136,0.55); animation: today-pulse 2.4s ease-out infinite; }
+  .today-dot .label { position: absolute; top: -24px; left: 50%; transform: translateX(-50%); font-family: var(--font-display); font-size: 9.5px; font-weight: 400; letter-spacing: 0.12em; text-transform: uppercase; color: var(--copper-bright); white-space: nowrap; pointer-events: none; }
+  @keyframes today-pulse { 0% { transform: scale(0.7); opacity: 0.9; } 100% { transform: scale(1.7); opacity: 0; } }
+
+  .step { position: relative; outline: none; width: var(--w); }
+  .step .card { position: absolute; left: 50%; transform: translateX(-50%); width: 190px; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 14px 18px; background: var(--bg-panel); border: 1px solid var(--line); border-radius: 10px; opacity: 0; transition: opacity 0.5s ease, transform 0.5s ease, border-color 0.25s ease, background 0.25s ease; }
+  .step:not(.in-view) .card { transform: translateX(-50%) translateY(10px); }
+  .step.in-view .card { opacity: 1; }
+  .milestone .card { bottom: calc(50% + 72px); height: 176px; }
+  .phase .card { top: calc(50% + 40px); height: 96px; justify-content: center; }
+  .step:hover .card, .step:focus-within .card { border-color: var(--copper-deep); background: var(--bg-panel-hover); }
+
+  .eyebrow { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--copper); font-weight: 700; display: block; }
+  .value { font-family: var(--font-display); font-weight: 400; font-size: 21px; color: var(--white); font-variant-numeric: tabular-nums; letter-spacing: 0.01em; display: block; }
+  .month { font-size: 10.5px; color: var(--stone); letter-spacing: 0.02em; display: block; }
+  .desc { font-size: 12.5px; line-height: 1.45; color: var(--stone); margin: 2px 0 0; }
+
+  .stem { position: absolute; left: 50%; width: 2px; transform: translateX(-1px); background: var(--line); transition: background 0.25s ease; }
+  .milestone .stem { top: calc(50% - 32px - 40px); height: 40px; }
+  .phase .stem { top: 50%; height: 40px; }
+  .step:hover .stem, .step:focus-within .stem { background: var(--copper-deep); }
+  .step.reached .stem { background: var(--copper); }
+
+  .node { position: absolute; top: 50%; left: 50%; width: 64px; height: 64px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--bg); border: 2px solid var(--line); display: flex; align-items: center; justify-content: center; color: var(--copper); cursor: default; transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease, color 0.25s ease, background 0.25s ease; z-index: 2; }
+  .node svg { width: 24px; height: 24px; }
+  .milestone:hover .node, .milestone:focus-within .node { border-color: var(--copper); transform: translate(-50%, -50%) scale(1.08); box-shadow: 0 0 0 6px rgba(163,119,92,0.14); }
+  .milestone.reached .node { border-color: var(--copper-bright); color: var(--copper-bright); background: var(--copper-deep); box-shadow: 0 0 0 8px rgba(163,119,92,0.2); }
+  .milestone.reached:hover .node, .milestone.reached:focus-within .node { transform: translate(-50%, -50%) scale(1.08); }
+  .node:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+
+${MARKER_CSS}
+
+  footer { padding: 18px clamp(20px, 6vw, 72px) clamp(24px, 4vw, 40px); max-width: 1400px; width: 100%; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+  footer .note { font-size: 11.5px; color: var(--stone); letter-spacing: 0.02em; }
+  footer .note b { color: var(--copper); font-weight: 600; }
+  .site-link { color: var(--stone); text-decoration: none; border-bottom: 1px solid var(--line); transition: color 0.2s ease, border-color 0.2s ease; }
+  .site-link:hover, .site-link:focus-visible { color: var(--copper-bright); border-color: var(--copper-bright); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .step .card { transition: opacity 0.2s ease; }
+    .step:not(.in-view) .card { transform: translateX(-50%); }
+    .node, .scroll-btn { transition: none; }
+    /* the today-dot keeps its transition here on purpose: its slide-in is a
+       single short one-shot entrance, and the progress line + the year /
+       Bemusterungstage markers it travels with animate under this media
+       query too — killing only the dot's transition left it snapping to
+       its position while everything around it glided, which read as a bug.
+       The genuinely motion-sensitive part, the infinitely repeating pulse
+       ring, stays disabled below. */
+    .today-dot::before { animation: none; display: none; }
+  }
+
+  @media (max-width: 640px) {
+    .timeline-track { column-gap: 16px; height: 520px; }
+    .step { width: calc(var(--w) * 0.65); }
+    .step .card { width: 150px; padding: 12px 14px; }
+    .milestone .card { bottom: calc(50% + 60px); height: 178px; }
+    .phase .card { top: calc(50% + 32px); height: 78px; }
+    .milestone .stem { top: calc(50% - 28px - 32px); height: 32px; }
+    .phase .stem { top: 50%; height: 32px; }
+    .node { width: 56px; height: 56px; }
+    .value { font-size: 18px; }
+${MARKER_CSS_MOBILE}
+    .nav-hint { display: none; }
+  }
+</style>
+
+<header>
+  <div class="header-row">
+    <div>
+      <div class="wordmark">
+        ${MDH_LOGO_HTML}
+      </div>
+      <h1>${project}</h1>
+      <p class="subhead"><span class="subhead-lead">Individueller Bauablauf f&uuml;r ${anschrift}.</span>Der Best&auml;tigungszeitpunkt richtet sich unabh&auml;ngig von der Baubewilligung nach dem vorgesehenen Bauablauf. Sollte sich die Baubewilligung verz&ouml;gern, bleibt der Termin f&uuml;r die Best&auml;tigung bestehen. So k&ouml;nnen Bestellungen und weitere Vorbereitungen rechtzeitig ausgel&ouml;st werden.</p>
+    </div>
+    <div class="controls">
+      <button class="scroll-btn" id="btn-prev" aria-label="Vorheriger Meilenstein"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button class="scroll-btn" id="btn-next" aria-label="N&auml;chster Meilenstein"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
+  </div>
+  <div class="nav-hint">
+    <span>Navigation</span>
+    <span class="keys"><kbd>&larr;</kbd><kbd>&rarr;</kbd></span>
+    <span>oder Ziehen mit der Maus</span>
+    <span class="today-badge" id="today-badge"><span class="pip"></span>wird berechnet&hellip;</span>
+  </div>
+</header>
+
+<div class="timeline-section">
+  <div class="timeline-wrap" id="wrap" tabindex="-1">
+    <div class="timeline-track" id="track">
+${buildTimelineBody(state)}
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span class="note">${project} &middot; Bauablauf</span>
+  <span class="note">MDH &middot; <a class="site-link" href="https://www.marty-designhaus.ch/" target="_blank" rel="noopener noreferrer">marty-designhaus.ch</a></span>
+</footer>
+
+<script>${RUNTIME_JS({ yearMarkerJs: yearMarkerJs(state), bemusterungJs: bemusterungJs(state), bemLabelOffsetJs: bemLabelOffsetJs(state), yearLabelOffsetJs: yearLabelOffsetJs(state) })}<\/script>
+`;
+  }
+
+  /* =====================================================================
+     freshhaus (light / lime) template
+     ===================================================================== */
+
+  function buildFH(state) {
+    const anschrift = esc(anschriftText(state) || 'Familie Muster');
+    return `<title>${anschrift} Bauablauf</title>
+
+<style>
+  @font-face { font-family: 'Obibok'; src: url('https://www.freshhaus.ch/_assets/535baf2d2c5e492bfcadf9e13e6ea7e1/Fonts/Obibok-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+  @font-face { font-family: 'Obibok'; src: url('https://www.freshhaus.ch/_assets/535baf2d2c5e492bfcadf9e13e6ea7e1/Fonts/Obibok-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+
+  :root {
+    --bg: #ffffff; --bg-panel: #f5f6f1; --bg-panel-hover: #ebeee2;
+    --accent: #96c814; --accent-mid: #698c0e; --accent-deep: #5c7d0c;
+    --ink: #1d1e1c; --stone: #6b6d67; --line: #e2e4db; --focus: #5c7d0c;
+    --font-display: 'Obibok', 'Arial Narrow', sans-serif;
+    --font-body: 'Obibok', -apple-system, 'Segoe UI', sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+  body { min-height: 100vh; display: flex; flex-direction: column; background-image: radial-gradient(ellipse 900px 500px at 12% -10%, rgba(150,200,20,0.06), transparent 60%), radial-gradient(ellipse 700px 500px at 100% 110%, rgba(150,200,20,0.05), transparent 60%); }
+
+  header { padding: clamp(28px, 5vw, 56px) clamp(20px, 6vw, 72px) 8px; max-width: 1400px; width: 100%; margin: 0 auto; }
+  .wordmark { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
+  .wordmark .logo { height: 28px; width: auto; display: block; }
+  h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(52px, 6.8vw, 76px); line-height: 1.02; margin: 0 0 10px; text-wrap: balance; color: var(--accent); text-transform: uppercase; letter-spacing: 0.01em; }
+  .subhead { max-width: 52ch; color: var(--stone); font-size: 13.5px; line-height: 1.55; margin: 0; }
+  .subhead-lead { font-family: var(--font-display); font-weight: 700; display: block; color: var(--stone); font-size: 15.5px; margin-bottom: 6px; }
+
+  .nav-hint { display: flex; align-items: center; gap: 10px; margin-top: 28px; color: var(--stone); font-size: 12.5px; letter-spacing: 0.04em; text-transform: uppercase; flex-wrap: wrap; }
+  .nav-hint .keys { display: inline-flex; gap: 4px; }
+  .nav-hint kbd { font-family: var(--font-body); font-size: 11px; color: var(--ink); background: var(--bg-panel); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; }
+  .today-badge { display: inline-flex; align-items: center; gap: 7px; margin-left: 4px; padding: 3px 10px 3px 8px; border-radius: 999px; background: var(--bg-panel); border: 1px solid var(--line); color: var(--ink); font-size: 11.5px; letter-spacing: 0.03em; }
+  .today-badge .pip { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px rgba(150,200,20,0.25); flex-shrink: 0; }
+  .today-badge b { color: var(--accent-deep); font-weight: 700; }
+
+  .controls { display: flex; align-items: center; gap: 16px; margin-left: auto; }
+  .scroll-btn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line); background: var(--bg-panel); color: var(--ink); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease; flex-shrink: 0; }
+  .scroll-btn:hover { background: var(--bg-panel-hover); border-color: var(--accent-deep); }
+  .scroll-btn:active { transform: scale(0.94); }
+  .scroll-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .scroll-btn svg { width: 16px; height: 16px; }
+  .header-row { display: flex; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+
+  .timeline-section { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 24px 0 20px; }
+  .timeline-wrap { overflow-x: auto; overflow-y: hidden; cursor: grab; scrollbar-width: none; -webkit-overflow-scrolling: touch; -ms-overflow-style: none; mask-image: linear-gradient(to right, transparent 0, black 40px, black calc(100% - 40px), transparent 100%); padding: 12px clamp(20px, 6vw, 72px); }
+  .timeline-wrap.dragging { cursor: grabbing; }
+  .timeline-wrap::-webkit-scrollbar { display: none; }
+  .timeline-track { position: relative; display: grid; grid-auto-flow: column; column-gap: 20px; height: 570px; width: max-content; padding: 0 40px; margin: 0 auto; }
+
+  .baseline { position: absolute; left: 0; right: 0; top: 50%; height: 2px; background: var(--line); transform: translateY(-1px); z-index: 0; }
+  .baseline .fill { position: absolute; top: 0; bottom: 0; left: 0; width: 0; background: var(--accent-deep); transition: width 0.6s ease; }
+
+  .today-dot { position: absolute; top: 50%; left: 0; width: 15px; height: 15px; margin-left: -7.5px; margin-top: -7.5px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg); box-shadow: 0 0 0 4px rgba(150,200,20,0.28); z-index: 3; transition: left 0.6s ease; }
+  .today-dot::before { content: ''; position: absolute; inset: -7px; border-radius: 50%; border: 1px solid rgba(150,200,20,0.55); animation: today-pulse 2.4s ease-out infinite; }
+  .today-dot .label { position: absolute; top: -24px; left: 50%; transform: translateX(-50%); font-family: var(--font-display); font-size: 9.5px; font-weight: 400; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent-deep); white-space: nowrap; pointer-events: none; }
+  @keyframes today-pulse { 0% { transform: scale(0.7); opacity: 0.9; } 100% { transform: scale(1.7); opacity: 0; } }
+
+  .step { position: relative; outline: none; width: var(--w); }
+  .step .card { position: absolute; left: 50%; transform: translateX(-50%); width: 190px; display: flex; flex-direction: column; justify-content: center; gap: 5px; padding: 14px 18px; background: var(--bg-panel); border: 1px solid var(--line); border-radius: 10px; opacity: 0; transition: opacity 0.5s ease, transform 0.5s ease, border-color 0.25s ease, background 0.25s ease; }
+  .step:not(.in-view) .card { transform: translateX(-50%) translateY(10px); }
+  .step.in-view .card { opacity: 1; }
+  .milestone .card { bottom: calc(50% + 72px); height: 176px; }
+  .phase .card { top: calc(50% + 40px); height: 96px; justify-content: center; }
+  .step:hover .card, .step:focus-within .card { border-color: var(--accent-deep); background: var(--bg-panel-hover); }
+
+  .eyebrow { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-deep); font-weight: 700; display: block; }
+  .value { font-family: var(--font-display); font-weight: 400; font-size: 19px; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: 0.01em; display: block; }
+  .month { font-size: 10.5px; color: var(--stone); letter-spacing: 0.02em; display: block; }
+  .desc { font-size: 12.5px; line-height: 1.45; color: var(--stone); margin: 2px 0 0; }
+
+  .stem { position: absolute; left: 50%; width: 2px; transform: translateX(-1px); background: var(--line); transition: background 0.25s ease; }
+  .milestone .stem { top: calc(50% - 32px - 40px); height: 40px; }
+  .phase .stem { top: 50%; height: 40px; }
+  .step:hover .stem, .step:focus-within .stem { background: var(--accent-deep); }
+  .step.reached .stem { background: var(--accent-deep); }
+
+  .node { position: absolute; top: 50%; left: 50%; width: 64px; height: 64px; transform: translate(-50%, -50%); border-radius: 50%; background: var(--bg); border: 2px solid var(--line); display: flex; align-items: center; justify-content: center; color: var(--accent-deep); cursor: default; transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease, color 0.25s ease, background 0.25s ease; z-index: 2; }
+  .node svg { width: 24px; height: 24px; }
+  .milestone:hover .node, .milestone:focus-within .node { border-color: var(--accent-deep); transform: translate(-50%, -50%) scale(1.08); box-shadow: 0 0 0 6px rgba(150,200,20,0.16); }
+  .milestone.reached .node { border-color: var(--accent-deep); color: #ffffff; background: var(--accent); box-shadow: 0 0 0 8px rgba(150,200,20,0.22); }
+  .milestone.reached:hover .node, .milestone.reached:focus-within .node { transform: translate(-50%, -50%) scale(1.08); }
+  .node:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+
+${MARKER_CSS}
+
+  footer { padding: 18px clamp(20px, 6vw, 72px) clamp(24px, 4vw, 40px); max-width: 1400px; width: 100%; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+  footer .note { font-size: 11.5px; color: var(--stone); letter-spacing: 0.02em; }
+  footer .note b { color: var(--accent-deep); font-weight: 700; }
+  .site-link { color: var(--stone); text-decoration: none; border-bottom: 1px solid var(--line); transition: color 0.2s ease, border-color 0.2s ease; }
+  .site-link:hover, .site-link:focus-visible { color: var(--accent-deep); border-color: var(--accent-deep); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .step .card { transition: opacity 0.2s ease; }
+    .step:not(.in-view) .card { transform: translateX(-50%); }
+    .node, .scroll-btn { transition: none; }
+    /* the today-dot keeps its transition here on purpose: its slide-in is a
+       single short one-shot entrance, and the progress line + the year /
+       Bemusterungstage markers it travels with animate under this media
+       query too — killing only the dot's transition left it snapping to
+       its position while everything around it glided, which read as a bug.
+       The genuinely motion-sensitive part, the infinitely repeating pulse
+       ring, stays disabled below. */
+    .today-dot::before { animation: none; display: none; }
+  }
+
+  @media (max-width: 640px) {
+    .timeline-track { column-gap: 16px; height: 520px; }
+    .step { width: calc(var(--w) * 0.65); }
+    .step .card { width: 150px; padding: 12px 14px; }
+    .milestone .card { bottom: calc(50% + 60px); height: 178px; }
+    .phase .card { top: calc(50% + 32px); height: 78px; }
+    .milestone .stem { top: calc(50% - 28px - 32px); height: 32px; }
+    .phase .stem { top: 50%; height: 32px; }
+    .node { width: 56px; height: 56px; }
+    .value { font-size: 18px; }
+${MARKER_CSS_MOBILE}
+    .nav-hint { display: none; }
+  }
+</style>
+
+<header>
+  <div class="header-row">
+    <div>
+      <div class="wordmark">
+        ${FH_LOGO_HTML}
+      </div>
+      <h1>${anschrift}</h1>
+      <p class="subhead"><span class="subhead-lead">Individueller Bauablauf.</span>Der Best&auml;tigungszeitpunkt richtet sich unabh&auml;ngig von der Baubewilligung nach dem vorgesehenen Bauablauf. Sollte sich die Baubewilligung verz&ouml;gern, bleibt der Termin f&uuml;r die Best&auml;tigung bestehen. So k&ouml;nnen Bestellungen und weitere Vorbereitungen rechtzeitig ausgel&ouml;st werden.</p>
+    </div>
+    <div class="controls">
+      <button class="scroll-btn" id="btn-prev" aria-label="Vorheriger Meilenstein"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button class="scroll-btn" id="btn-next" aria-label="N&auml;chster Meilenstein"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
+  </div>
+  <div class="nav-hint">
+    <span>Navigation</span>
+    <span class="keys"><kbd>&larr;</kbd><kbd>&rarr;</kbd></span>
+    <span>oder Ziehen mit der Maus</span>
+    <span class="today-badge" id="today-badge"><span class="pip"></span>wird berechnet&hellip;</span>
+  </div>
+</header>
+
+<div class="timeline-section">
+  <div class="timeline-wrap" id="wrap" tabindex="-1">
+    <div class="timeline-track" id="track">
+${buildTimelineBody(state)}
+    </div>
+  </div>
+</div>
+
+<footer>
+  <span class="note">${anschrift} &middot; Bauablauf</span>
+  <span class="note"><a class="site-link" href="https://www.freshhaus.ch/" target="_blank" rel="noopener noreferrer">freshhaus.ch</a></span>
+</footer>
+
+<script>${RUNTIME_JS({ yearMarkerJs: yearMarkerJs(state), bemusterungJs: bemusterungJs(state), bemLabelOffsetJs: bemLabelOffsetJs(state), yearLabelOffsetJs: yearLabelOffsetJs(state) })}<\/script>
+`;
+  }
+
+  /* =====================================================================
+     EDITOR WIRING
+     ===================================================================== */
+
+  const state = {
+    style: 'mdh',
+    projectName: 'Musterprojekt',
+    anschriftPart1: 'Familie',
+    anschriftPart2: 'Muster',
+    milestones: {
+      werkvertrag: { year: 2026, week: 20 },
+      bestaetigung: { year: 2026, week: 40 },
+      planversand: { year: 2027, week: 4 },
+      baubeginn: { year: 2027, week: 10 }
+    },
+    bemusterung: { mode: 'range', startYear: 2026, startWeek: 26, endYear: 2026, endWeek: 30 },
+    bemLabelDX: 0,
+    bemLabelDY: 0,
+    yearLabelDX: 0,
+    yearLabelDY: 0
+  };
+
+  const els = {
+    styleMdh: document.getElementById('style-mdh'),
+    styleFh: document.getElementById('style-fh'),
+    fieldProjectName: document.getElementById('field-project-name'),
+    inputProjectName: document.getElementById('input-project-name'),
+    inputAnschrift1: document.getElementById('input-anschrift-1'),
+    inputAnschrift2: document.getElementById('input-anschrift-2'),
+    modeSingle: document.getElementById('mode-single'),
+    modeRange: document.getElementById('mode-range'),
+    bemEndRow: document.getElementById('bem-end-row'),
+    bemStartLabel: document.getElementById('bem-start-label'),
+    bemLabelDx: document.getElementById('bem-label-dx'),
+    bemLabelDy: document.getElementById('bem-label-dy'),
+    bemLabelReset: document.getElementById('bem-label-reset'),
+    yearLabelDx: document.getElementById('year-label-dx'),
+    yearLabelDy: document.getElementById('year-label-dy'),
+    yearLabelReset: document.getElementById('year-label-reset'),
+    frame: document.getElementById('preview-frame'),
+    btnHtml: document.getElementById('btn-html'),
+    btnPdf: document.getElementById('btn-pdf')
+  };
+
+  function readForm() {
+    state.projectName = els.inputProjectName.value;
+    state.anschriftPart1 = els.inputAnschrift1.value;
+    state.anschriftPart2 = els.inputAnschrift2.value;
+    ['werkvertrag', 'bestaetigung', 'planversand', 'baubeginn'].forEach(key => {
+      state.milestones[key].week = parseInt(document.getElementById('ms-' + key + '-week').value, 10) || 1;
+      state.milestones[key].year = parseInt(document.getElementById('ms-' + key + '-year').value, 10) || 2026;
+    });
+    state.bemusterung.startWeek = parseInt(document.getElementById('bem-start-week').value, 10) || 1;
+    state.bemusterung.startYear = parseInt(document.getElementById('bem-start-year').value, 10) || 2026;
+    state.bemusterung.endWeek = parseInt(document.getElementById('bem-end-week').value, 10) || 1;
+    state.bemusterung.endYear = parseInt(document.getElementById('bem-end-year').value, 10) || 2026;
+    state.bemLabelDX = parseInt(els.bemLabelDx.value, 10) || 0;
+    state.bemLabelDY = parseInt(els.bemLabelDy.value, 10) || 0;
+    state.yearLabelDX = parseInt(els.yearLabelDx.value, 10) || 0;
+    state.yearLabelDY = parseInt(els.yearLabelDy.value, 10) || 0;
+  }
+
+  function currentHtml() {
+    return state.style === 'mdh' ? buildMDH(state) : buildFH(state);
+  }
+
+  /* CSS appended ONLY to the live preview / PDF capture — never to the
+     downloaded HTML file, which keeps its real transitions/animations. */
+  function noAnimCss() {
+    return '<style>*,*::before,*::after{transition:none !important;animation:none !important;}</style>';
+  }
+
+  /* forces every card fully visible (via the SAME "in-view" class the
+     scroll-reveal observer would add, so it doesn't fight the phase-1
+     re-centering transform applied at runtime), un-clips the horizontally
+     scrollable timeline, drops the min-height:100vh so the page's true
+     content height can be measured accurately, and pins every element to
+     one safe font stack — the brand webfonts live on marty-designhaus.ch /
+     freshhaus.ch without CORS headers, so html2canvas's isolated render
+     pass can't fetch them and ends up mixing metrics from two different
+     fonts mid-paragraph, which is what caused the stretched/justified-
+     looking word spacing. Used only for the exact-replica PDF capture. */
+  function forceVisibleCss() {
+    return '<style>' +
+      '*{font-family:-apple-system,"Segoe UI",Arial,sans-serif !important;text-wrap:normal !important;}' +
+      '.today-dot::before{display:none !important;}' +
+      '.timeline-wrap{overflow:visible !important;mask-image:none !important;}' +
+      'body{min-height:0 !important;}' +
+      '</style>' +
+      '<script>document.querySelectorAll(".step").forEach(function(s){ s.classList.add("in-view"); });<\/script>';
+  }
+
+  /* prepended so it parses and runs before the runtime script further
+     down the document — flips the today-dot's intro animation off
+     (see the RUNTIME_JS suppressIntro comment). Must come first in the
+     string, not just be appended anywhere, since script order is what
+     guarantees it's seen in time. */
+  const SUPPRESS_INTRO_MARKER = '<script>window.__BAUABLAUF_SUPPRESS_INTRO__=true;<\/script>';
+
+  function previewHtml() {
+    return SUPPRESS_INTRO_MARKER + currentHtml() + noAnimCss();
+  }
+
+  function captureHtml() {
+    return SUPPRESS_INTRO_MARKER + currentHtml() + noAnimCss() + forceVisibleCss();
+  }
+
+  function render() {
+    readForm();
+    els.frame.srcdoc = previewHtml();
+  }
+
+  els.styleMdh.addEventListener('click', () => {
+    state.style = 'mdh';
+    els.styleMdh.classList.add('active');
+    els.styleFh.classList.remove('active');
+    els.fieldProjectName.style.display = '';
+    render();
+  });
+  els.styleFh.addEventListener('click', () => {
+    state.style = 'fh';
+    els.styleFh.classList.add('active');
+    els.styleMdh.classList.remove('active');
+    els.fieldProjectName.style.display = 'none';
+    render();
+  });
+
+  els.modeSingle.addEventListener('click', () => {
+    state.bemusterung.mode = 'single';
+    els.modeSingle.classList.add('active');
+    els.modeRange.classList.remove('active');
+    els.bemEndRow.style.display = 'none';
+    els.bemStartLabel.textContent = 'KW';
+    render();
+  });
+  els.modeRange.addEventListener('click', () => {
+    state.bemusterung.mode = 'range';
+    els.modeRange.classList.add('active');
+    els.modeSingle.classList.remove('active');
+    els.bemEndRow.style.display = '';
+    els.bemStartLabel.textContent = 'Start KW';
+    render();
+  });
+
+  document.querySelectorAll('.panel input').forEach(el => {
+    el.addEventListener('input', render);
+  });
+
+  els.bemLabelReset.addEventListener('click', () => {
+    els.bemLabelDx.value = 0;
+    els.bemLabelDy.value = 0;
+    render();
+  });
+  els.yearLabelReset.addEventListener('click', () => {
+    els.yearLabelDx.value = 0;
+    els.yearLabelDy.value = 0;
+    render();
+  });
+
+  function exportName() {
+    return state.style === 'mdh' ? (state.projectName || 'villa') : (anschriftText(state) || 'kunde');
+  }
+
+  els.btnHtml.addEventListener('click', () => {
+    readForm();
+    const html = currentHtml();
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = exportName().toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_bauablauf.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  /* renders the exact generated HTML file (unclipped + un-animated) into a
+     hidden same-origin iframe, so the captured canvas is a pixel-for-pixel
+     replica of the real page — not a separate summary layout. Width is
+     fixed: the timeline's own layout is a constant pixel width by design,
+     and a fixed width keeps every clamp()-based font-size/padding at the
+     same "settled" desktop value every time. Height is MEASURED (with the
+     min-height:100vh floor removed via forceVisibleCss) because the real
+     header text height depends on which webfont ends up loading — a fixed
+     guess there is what made the footer get cut off before. */
+  const CAPTURE_W = 1800;
+  const MEASURE_H = 1600;
+
+  function createCaptureFrame(html, w, h) {
+    return new Promise((resolve) => {
+      const frame = document.createElement('iframe');
+      frame.style.position = 'fixed';
+      frame.style.left = '-99999px';
+      frame.style.top = '0';
+      frame.style.width = w + 'px';
+      frame.style.height = h + 'px';
+      frame.style.border = 'none';
+      frame.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(frame);
+      frame.addEventListener('load', () => resolve(frame), { once: true });
+      frame.srcdoc = html;
+    });
+  }
+
+  els.btnPdf.addEventListener('click', async () => {
+    readForm();
+    els.btnPdf.disabled = true;
+    const originalLabel = els.btnPdf.textContent;
+    els.btnPdf.textContent = '…';
+    let frame;
+    try {
+      frame = await createCaptureFrame(captureHtml(), CAPTURE_W, MEASURE_H);
+      const fdoc = frame.contentDocument;
+      if (fdoc.fonts && fdoc.fonts.ready) {
+        try { await fdoc.fonts.ready; } catch (e) { /* ignore */ }
+      }
+      await new Promise(r => setTimeout(r, 250));
+      const fullH = Math.max(1, Math.ceil(fdoc.body.scrollHeight));
+
+      const canvas = await html2canvas(fdoc.body, {
+        width: CAPTURE_W,
+        height: fullH,
+        windowWidth: CAPTURE_W,
+        windowHeight: fullH,
+        scale: 2,
+        useCORS: true
+      });
+
+      /* JPEG rather than PNG: jsPDF embeds a JPEG byte-for-byte (native PDF
+         DCTDecode filter) but has to re-encode a PNG as a raw bitmap, which
+         made this a ~30MB file for a handful of megapixels — JPEG keeps it
+         a few hundred KB with no visible quality loss on this flat, mostly
+         line/text artwork. */
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const { jsPDF } = window.jspdf;
+      /* The timeline's own proportions don't match strict A4 (297×210mm),
+         and forcing that ratio meant either white bars (fit-inside) or
+         cropping real content off the edge (cover-fill) — neither is
+         right. Instead the page is A4-landscape WIDTH, but its height is
+         derived from the capture's own aspect ratio, so the full,
+         uncropped timeline fills the entire page with nothing left over. */
+      const A4_LANDSCAPE_WIDTH_PT = 841.89;
+      const ratio = canvas.width / canvas.height;
+      const pageWidth = A4_LANDSCAPE_WIDTH_PT;
+      const pageHeight = pageWidth / ratio;
+      const pdf = new jsPDF({ unit: 'pt', format: [pageWidth, pageHeight], orientation: 'landscape' });
+      pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, pageHeight);
+      pdf.save(exportName().toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_bauablauf.pdf');
+    } finally {
+      if (frame && frame.parentNode) frame.parentNode.removeChild(frame);
+      els.btnPdf.disabled = false;
+      els.btnPdf.textContent = originalLabel;
+    }
+  });
+
+  els.fieldProjectName.style.display = '';
+  render();
+})();
+</script>
+</body>
+</html>
