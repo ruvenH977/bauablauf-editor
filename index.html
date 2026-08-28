@@ -835,11 +835,22 @@
     const style = state.style;
     const baseYear = m.werkvertrag.year;
     const phaseLabels = PHASE_LABELS[style];
-    const wvMs = isoWeekToMonday(m.werkvertrag.year, m.werkvertrag.week);
     const bsMs = isoWeekToMonday(m.bestaetigung.year, m.bestaetigung.week);
     const pvMs = isoWeekToMonday(m.planversand.year, m.planversand.week);
     const bbMs = isoWeekToMonday(m.baubeginn.year, m.baubeginn.week);
-    const w1 = weeksBetween(wvMs, bsMs);
+    /* "Ausarbeitung Bestätigung" runs from the Bemusterungstage to the
+       Bestätigung — not all the way back to the Werkvertrag. For a KW range
+       it starts at the range's LAST week (the samples are only settled once
+       the appointments are over); for a single KW it starts at that week.
+       This matches where the card is drawn: it is centred on that same
+       Bemusterung anchor and the Bestätigung node (see the phase1-centering
+       block in RUNTIME_JS), so the number and the position now describe the
+       same span. Clamped at 0 so an out-of-order entry (Bemusterung after
+       Bestätigung) shows "0 Wochen" rather than a negative count. */
+    const bemAnchorMs = state.bemusterung.mode === 'range'
+      ? isoWeekToMonday(state.bemusterung.endYear, state.bemusterung.endWeek)
+      : isoWeekToMonday(state.bemusterung.startYear, state.bemusterung.startWeek);
+    const w1 = Math.max(0, weeksBetween(bemAnchorMs, bsMs));
     const w2 = weeksBetween(bsMs, pvMs);
     const w3 = weeksBetween(pvMs, bbMs);
 
