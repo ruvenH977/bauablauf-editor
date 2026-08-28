@@ -374,6 +374,12 @@
 
     let isDown = false, startX = 0, startScroll = 0;
     wrap.addEventListener('pointerdown', (e) => {
+      /* mouse only. On a touch screen the browser already scrolls the
+         wrapper natively (with momentum); running this handler too would
+         apply a second, competing scroll on every move — the timeline
+         then travels at roughly double speed and stutters against the
+         native fling. Pen/touch fall through to the native behaviour. */
+      if (e.pointerType && e.pointerType !== 'mouse') return;
       isDown = true;
       wrap.classList.add('dragging');
       startX = e.clientX;
@@ -884,7 +890,12 @@
   function buildMDH(state) {
     const anschrift = esc(anschriftText(state) || 'Familie Muster');
     const project = esc(state.projectName || 'Musterprojekt');
-    return `<title>${project} Bauablauf</title>
+    return `<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${project} Bauablauf</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Expanded:wght@600;700;800&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -910,12 +921,13 @@
   header { padding: clamp(28px, 5vw, 56px) clamp(20px, 6vw, 72px) 8px; max-width: 1400px; width: 100%; margin: 0 auto; }
   .wordmark { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
   .wordmark .logo { height: 27px; width: auto; display: block; }
-  h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(62px, 6.8vw, 96px); line-height: 1.02; margin: 0 0 10px; text-wrap: balance; color: var(--copper); text-transform: uppercase; letter-spacing: 0.01em; }
-  .subhead { max-width: 52ch; color: var(--stone); font-size: 14px; line-height: 1.55; margin: 0; }
+  h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(34px, 6.8vw, 96px); line-height: 1.02; margin: 0 0 10px; text-wrap: balance; overflow-wrap: break-word; color: var(--copper); text-transform: uppercase; letter-spacing: 0.01em; }
+  .subhead { max-width: min(52ch, 100%); color: var(--stone); font-size: 14px; line-height: 1.55; margin: 0; }
   .subhead-lead { display: block; color: var(--white); font-size: 15.5px; margin-bottom: 6px; }
 
   .nav-hint { display: flex; align-items: center; gap: 10px; margin-top: 28px; color: var(--stone); font-size: 12.5px; letter-spacing: 0.04em; text-transform: uppercase; flex-wrap: wrap; }
   .nav-hint .keys { display: inline-flex; gap: 4px; }
+  .nav-hint .hint-touch { display: none; }
   .nav-hint kbd { font-family: var(--font-body); font-size: 11px; color: var(--white); background: var(--bg-panel); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; }
   .today-badge { display: inline-flex; align-items: center; gap: 7px; margin-left: 4px; padding: 3px 10px 3px 8px; border-radius: 999px; background: var(--bg-panel); border: 1px solid var(--line); color: var(--white); font-size: 11.5px; letter-spacing: 0.03em; }
   .today-badge .pip { width: 8px; height: 8px; border-radius: 50%; background: var(--copper-bright); box-shadow: 0 0 0 3px rgba(199,166,136,0.25); flex-shrink: 0; }
@@ -928,6 +940,7 @@
   .scroll-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   .scroll-btn svg { width: 16px; height: 16px; }
   .header-row { display: flex; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+  .header-row > * { min-width: 0; max-width: 100%; }
 
   .timeline-section { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 24px 0 20px; }
   .timeline-wrap { overflow-x: auto; overflow-y: hidden; cursor: grab; scrollbar-width: none; -webkit-overflow-scrolling: touch; -ms-overflow-style: none; mask-image: linear-gradient(to right, transparent 0, black 40px, black calc(100% - 40px), transparent 100%); padding: 12px clamp(20px, 6vw, 72px); }
@@ -977,6 +990,14 @@ ${MARKER_CSS}
   .site-link { color: var(--stone); text-decoration: none; border-bottom: 1px solid var(--line); transition: color 0.2s ease, border-color 0.2s ease; }
   .site-link:hover, .site-link:focus-visible { color: var(--copper-bright); border-color: var(--copper-bright); }
 
+  /* the hint wording follows the INPUT DEVICE, not the screen width: a
+     tablet is wide enough to miss the 640px breakpoint but still has no
+     mouse to "drag" with. */
+  @media (hover: none) and (pointer: coarse) {
+    .nav-hint .hint-pointer { display: none; }
+    .nav-hint .hint-touch { display: inline; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .step .card { transition: opacity 0.2s ease; }
     .step:not(.in-view) .card { transform: translateX(-50%); }
@@ -992,7 +1013,7 @@ ${MARKER_CSS}
   }
 
   @media (max-width: 640px) {
-    .timeline-track { column-gap: 16px; height: 520px; }
+    .timeline-track { column-gap: 16px; height: 480px; }
     .step { width: calc(var(--w) * 0.65); }
     .step .card { width: 150px; padding: 12px 14px; }
     .milestone .card { bottom: calc(50% + 60px); height: 178px; }
@@ -1002,9 +1023,21 @@ ${MARKER_CSS}
     .node { width: 56px; height: 56px; }
     .value { font-size: 18px; }
 ${MARKER_CSS_MOBILE}
-    .nav-hint { display: none; }
+    /* the hint row stays: hiding it outright also hid the "Heute" badge,
+       which is the one piece of live information on the page. Only the
+       mouse/keyboard wording is swapped for a swipe hint. */
+    .nav-hint { margin-top: 18px; font-size: 11px; gap: 8px; }
+    .nav-hint .hint-pointer { display: none; }
+    .nav-hint .hint-touch { display: inline; }
+    /* the track reserves room for a card above and below the line; on a
+       phone the cards are shorter, so the desktop reserve left a large
+       empty band under the timeline. */
+    .timeline-section { padding: 8px 0 12px; }
+    header { padding-bottom: 0; }
   }
 </style>
+</head>
+<body>
 
 <header>
   <div class="header-row">
@@ -1021,9 +1054,10 @@ ${MARKER_CSS_MOBILE}
     </div>
   </div>
   <div class="nav-hint">
-    <span>Navigation</span>
-    <span class="keys"><kbd>&larr;</kbd><kbd>&rarr;</kbd></span>
-    <span>oder Ziehen mit der Maus</span>
+    <span class="hint-pointer">Navigation</span>
+    <span class="keys hint-pointer"><kbd>&larr;</kbd><kbd>&rarr;</kbd></span>
+    <span class="hint-pointer">oder Ziehen mit der Maus</span>
+    <span class="hint-touch">&larr; Zeitstrahl wischen &rarr;</span>
     <span class="today-badge" id="today-badge"><span class="pip"></span>wird berechnet&hellip;</span>
   </div>
 </header>
@@ -1042,6 +1076,9 @@ ${buildTimelineBody(state)}
 </footer>
 
 <script>${RUNTIME_JS({ yearMarkerJs: yearMarkerJs(state), bemusterungJs: bemusterungJs(state), bemLabelOffsetJs: bemLabelOffsetJs(state), yearLabelOffsetJs: yearLabelOffsetJs(state) })}<\/script>
+
+</body>
+</html>
 `;
   }
 
@@ -1051,7 +1088,12 @@ ${buildTimelineBody(state)}
 
   function buildFH(state) {
     const anschrift = esc(anschriftText(state) || 'Familie Muster');
-    return `<title>${anschrift} Bauablauf</title>
+    return `<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${anschrift} Bauablauf</title>
 
 <style>
   @font-face { font-family: 'Obibok'; src: url('https://www.freshhaus.ch/_assets/535baf2d2c5e492bfcadf9e13e6ea7e1/Fonts/Obibok-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
@@ -1072,12 +1114,13 @@ ${buildTimelineBody(state)}
   header { padding: clamp(28px, 5vw, 56px) clamp(20px, 6vw, 72px) 8px; max-width: 1400px; width: 100%; margin: 0 auto; }
   .wordmark { display: flex; align-items: center; gap: 16px; margin-bottom: 22px; }
   .wordmark .logo { height: 28px; width: auto; display: block; }
-  h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(52px, 6.8vw, 76px); line-height: 1.02; margin: 0 0 10px; text-wrap: balance; color: var(--accent); text-transform: uppercase; letter-spacing: 0.01em; }
-  .subhead { max-width: 52ch; color: var(--stone); font-size: 13.5px; line-height: 1.55; margin: 0; }
+  h1 { font-family: var(--font-display); font-weight: 700; font-size: clamp(32px, 6.8vw, 76px); line-height: 1.02; margin: 0 0 10px; text-wrap: balance; overflow-wrap: break-word; color: var(--accent); text-transform: uppercase; letter-spacing: 0.01em; }
+  .subhead { max-width: min(52ch, 100%); color: var(--stone); font-size: 13.5px; line-height: 1.55; margin: 0; }
   .subhead-lead { font-family: var(--font-display); font-weight: 700; display: block; color: var(--stone); font-size: 15.5px; margin-bottom: 6px; }
 
   .nav-hint { display: flex; align-items: center; gap: 10px; margin-top: 28px; color: var(--stone); font-size: 12.5px; letter-spacing: 0.04em; text-transform: uppercase; flex-wrap: wrap; }
   .nav-hint .keys { display: inline-flex; gap: 4px; }
+  .nav-hint .hint-touch { display: none; }
   .nav-hint kbd { font-family: var(--font-body); font-size: 11px; color: var(--ink); background: var(--bg-panel); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; }
   .today-badge { display: inline-flex; align-items: center; gap: 7px; margin-left: 4px; padding: 3px 10px 3px 8px; border-radius: 999px; background: var(--bg-panel); border: 1px solid var(--line); color: var(--ink); font-size: 11.5px; letter-spacing: 0.03em; }
   .today-badge .pip { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px rgba(150,200,20,0.25); flex-shrink: 0; }
@@ -1090,6 +1133,7 @@ ${buildTimelineBody(state)}
   .scroll-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   .scroll-btn svg { width: 16px; height: 16px; }
   .header-row { display: flex; align-items: flex-end; gap: 24px; flex-wrap: wrap; }
+  .header-row > * { min-width: 0; max-width: 100%; }
 
   .timeline-section { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 24px 0 20px; }
   .timeline-wrap { overflow-x: auto; overflow-y: hidden; cursor: grab; scrollbar-width: none; -webkit-overflow-scrolling: touch; -ms-overflow-style: none; mask-image: linear-gradient(to right, transparent 0, black 40px, black calc(100% - 40px), transparent 100%); padding: 12px clamp(20px, 6vw, 72px); }
@@ -1139,6 +1183,14 @@ ${MARKER_CSS}
   .site-link { color: var(--stone); text-decoration: none; border-bottom: 1px solid var(--line); transition: color 0.2s ease, border-color 0.2s ease; }
   .site-link:hover, .site-link:focus-visible { color: var(--accent-deep); border-color: var(--accent-deep); }
 
+  /* the hint wording follows the INPUT DEVICE, not the screen width: a
+     tablet is wide enough to miss the 640px breakpoint but still has no
+     mouse to "drag" with. */
+  @media (hover: none) and (pointer: coarse) {
+    .nav-hint .hint-pointer { display: none; }
+    .nav-hint .hint-touch { display: inline; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     .step .card { transition: opacity 0.2s ease; }
     .step:not(.in-view) .card { transform: translateX(-50%); }
@@ -1154,7 +1206,7 @@ ${MARKER_CSS}
   }
 
   @media (max-width: 640px) {
-    .timeline-track { column-gap: 16px; height: 520px; }
+    .timeline-track { column-gap: 16px; height: 480px; }
     .step { width: calc(var(--w) * 0.65); }
     .step .card { width: 150px; padding: 12px 14px; }
     .milestone .card { bottom: calc(50% + 60px); height: 178px; }
@@ -1164,9 +1216,21 @@ ${MARKER_CSS}
     .node { width: 56px; height: 56px; }
     .value { font-size: 18px; }
 ${MARKER_CSS_MOBILE}
-    .nav-hint { display: none; }
+    /* the hint row stays: hiding it outright also hid the "Heute" badge,
+       which is the one piece of live information on the page. Only the
+       mouse/keyboard wording is swapped for a swipe hint. */
+    .nav-hint { margin-top: 18px; font-size: 11px; gap: 8px; }
+    .nav-hint .hint-pointer { display: none; }
+    .nav-hint .hint-touch { display: inline; }
+    /* the track reserves room for a card above and below the line; on a
+       phone the cards are shorter, so the desktop reserve left a large
+       empty band under the timeline. */
+    .timeline-section { padding: 8px 0 12px; }
+    header { padding-bottom: 0; }
   }
 </style>
+</head>
+<body>
 
 <header>
   <div class="header-row">
@@ -1183,9 +1247,10 @@ ${MARKER_CSS_MOBILE}
     </div>
   </div>
   <div class="nav-hint">
-    <span>Navigation</span>
-    <span class="keys"><kbd>&larr;</kbd><kbd>&rarr;</kbd></span>
-    <span>oder Ziehen mit der Maus</span>
+    <span class="hint-pointer">Navigation</span>
+    <span class="keys hint-pointer"><kbd>&larr;</kbd><kbd>&rarr;</kbd></span>
+    <span class="hint-pointer">oder Ziehen mit der Maus</span>
+    <span class="hint-touch">&larr; Zeitstrahl wischen &rarr;</span>
     <span class="today-badge" id="today-badge"><span class="pip"></span>wird berechnet&hellip;</span>
   </div>
 </header>
@@ -1204,6 +1269,9 @@ ${buildTimelineBody(state)}
 </footer>
 
 <script>${RUNTIME_JS({ yearMarkerJs: yearMarkerJs(state), bemusterungJs: bemusterungJs(state), bemLabelOffsetJs: bemLabelOffsetJs(state), yearLabelOffsetJs: yearLabelOffsetJs(state) })}<\/script>
+
+</body>
+</html>
 `;
   }
 
