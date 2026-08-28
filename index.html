@@ -673,16 +673,6 @@
   }
   `;
 
-  const MARKER_CSS_MOBILE = `
-    .marker .tick { height: 20px; }
-    .marker .ylabel { top: 26px; }
-    .marker.wide .ylabel { width: 104px; font-size: 9px; }
-    .marker.range .rtick { height: 9px; }
-    .marker.range .rline { top: 9px; }
-    .marker.range .rstem { top: 9px; height: 15px; }
-    .marker.range .ylabel { top: 28px; }
-  `;
-
   const MDH_LOGO_HTML = `<svg class="logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 167.62 40.03">
           <defs>
             <style>
@@ -1013,16 +1003,13 @@ ${MARKER_CSS}
   }
 
   @media (max-width: 640px) {
-    .timeline-track { column-gap: 16px; height: 480px; }
+    /* Cards, nodes, stems, type sizes and marker labels are left at their
+       desktop values on purpose — the timeline reads identically, it is
+       only shorter horizontally and the track is trimmed vertically.
+       510px is close to the 496px floor the desktop card geometry needs
+       (72px gap + 176px card above the centre line, mirrored below). */
+    .timeline-track { column-gap: 16px; height: 510px; }
     .step { width: calc(var(--w) * 0.65); }
-    .step .card { width: 150px; padding: 12px 14px; }
-    .milestone .card { bottom: calc(50% + 60px); height: 178px; }
-    .phase .card { top: calc(50% + 32px); height: 78px; }
-    .milestone .stem { top: calc(50% - 28px - 32px); height: 32px; }
-    .phase .stem { top: 50%; height: 32px; }
-    .node { width: 56px; height: 56px; }
-    .value { font-size: 18px; }
-${MARKER_CSS_MOBILE}
     /* the hint row stays: hiding it outright also hid the "Heute" badge,
        which is the one piece of live information on the page. Only the
        mouse/keyboard wording is swapped for a swipe hint. */
@@ -1222,16 +1209,13 @@ ${MARKER_CSS}
   }
 
   @media (max-width: 640px) {
-    .timeline-track { column-gap: 16px; height: 480px; }
+    /* Cards, nodes, stems, type sizes and marker labels are left at their
+       desktop values on purpose — the timeline reads identically, it is
+       only shorter horizontally and the track is trimmed vertically.
+       510px is close to the 496px floor the desktop card geometry needs
+       (72px gap + 176px card above the centre line, mirrored below). */
+    .timeline-track { column-gap: 16px; height: 510px; }
     .step { width: calc(var(--w) * 0.65); }
-    .step .card { width: 150px; padding: 12px 14px; }
-    .milestone .card { bottom: calc(50% + 60px); height: 178px; }
-    .phase .card { top: calc(50% + 32px); height: 78px; }
-    .milestone .stem { top: calc(50% - 28px - 32px); height: 32px; }
-    .phase .stem { top: 50%; height: 32px; }
-    .node { width: 56px; height: 56px; }
-    .value { font-size: 18px; }
-${MARKER_CSS_MOBILE}
     /* the hint row stays: hiding it outright also hid the "Heute" badge,
        which is the one piece of live information on the page. Only the
        mouse/keyboard wording is swapped for a swipe hint. */
