@@ -1029,11 +1029,27 @@ ${MARKER_CSS_MOBILE}
     .nav-hint { margin-top: 18px; font-size: 11px; gap: 8px; }
     .nav-hint .hint-pointer { display: none; }
     .nav-hint .hint-touch { display: inline; }
+    /* on a phone there is no room to push the arrows to the far edge, so
+       the hint, the badge and the arrows sit together as one group */
+    .nav-hint .controls { margin-left: 0; gap: 10px; }
+    .scroll-btn { width: 34px; height: 34px; }
+    .scroll-btn svg { width: 14px; height: 14px; }
     /* the track reserves room for a card above and below the line; on a
        phone the cards are shorter, so the desktop reserve left a large
        empty band under the timeline. */
     .timeline-section { padding: 8px 0 12px; }
     header { padding-bottom: 0; }
+  }
+
+  /* smallest phones (iPhone SE and similar): shave the row down just
+     enough that the hint, the badge and the arrows still share one line. */
+  @media (max-width: 360px) {
+    .nav-hint { gap: 6px; font-size: 10px; }
+    .nav-hint .controls { gap: 8px; }
+    .scroll-btn { width: 30px; height: 30px; }
+    .scroll-btn svg { width: 13px; height: 13px; }
+    .today-badge { font-size: 10.5px; padding: 2px 8px 2px 6px; gap: 5px; }
+    .today-badge .pip { width: 7px; height: 7px; }
   }
 </style>
 </head>
@@ -1048,17 +1064,17 @@ ${MARKER_CSS_MOBILE}
       <h1>${project}</h1>
       <p class="subhead"><span class="subhead-lead">Individueller Bauablauf f&uuml;r ${anschrift}.</span>Der Best&auml;tigungszeitpunkt richtet sich unabh&auml;ngig von der Baubewilligung nach dem vorgesehenen Bauablauf. Sollte sich die Baubewilligung verz&ouml;gern, bleibt der Termin f&uuml;r die Best&auml;tigung bestehen. So k&ouml;nnen Bestellungen und weitere Vorbereitungen rechtzeitig ausgel&ouml;st werden.</p>
     </div>
-    <div class="controls">
-      <button class="scroll-btn" id="btn-prev" aria-label="Vorheriger Meilenstein"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-      <button class="scroll-btn" id="btn-next" aria-label="N&auml;chster Meilenstein"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
-    </div>
   </div>
   <div class="nav-hint">
     <span class="hint-pointer">Navigation</span>
     <span class="keys hint-pointer"><kbd>&larr;</kbd><kbd>&rarr;</kbd></span>
     <span class="hint-pointer">oder Ziehen mit der Maus</span>
-    <span class="hint-touch">&larr; Zeitstrahl wischen &rarr;</span>
+    <span class="hint-touch">&larr; Wischen &rarr;</span>
     <span class="today-badge" id="today-badge"><span class="pip"></span>wird berechnet&hellip;</span>
+    <div class="controls">
+      <button class="scroll-btn" id="btn-prev" aria-label="Vorheriger Meilenstein"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button class="scroll-btn" id="btn-next" aria-label="N&auml;chster Meilenstein"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
   </div>
 </header>
 
@@ -1222,11 +1238,27 @@ ${MARKER_CSS_MOBILE}
     .nav-hint { margin-top: 18px; font-size: 11px; gap: 8px; }
     .nav-hint .hint-pointer { display: none; }
     .nav-hint .hint-touch { display: inline; }
+    /* on a phone there is no room to push the arrows to the far edge, so
+       the hint, the badge and the arrows sit together as one group */
+    .nav-hint .controls { margin-left: 0; gap: 10px; }
+    .scroll-btn { width: 34px; height: 34px; }
+    .scroll-btn svg { width: 14px; height: 14px; }
     /* the track reserves room for a card above and below the line; on a
        phone the cards are shorter, so the desktop reserve left a large
        empty band under the timeline. */
     .timeline-section { padding: 8px 0 12px; }
     header { padding-bottom: 0; }
+  }
+
+  /* smallest phones (iPhone SE and similar): shave the row down just
+     enough that the hint, the badge and the arrows still share one line. */
+  @media (max-width: 360px) {
+    .nav-hint { gap: 6px; font-size: 10px; }
+    .nav-hint .controls { gap: 8px; }
+    .scroll-btn { width: 30px; height: 30px; }
+    .scroll-btn svg { width: 13px; height: 13px; }
+    .today-badge { font-size: 10.5px; padding: 2px 8px 2px 6px; gap: 5px; }
+    .today-badge .pip { width: 7px; height: 7px; }
   }
 </style>
 </head>
@@ -1241,17 +1273,17 @@ ${MARKER_CSS_MOBILE}
       <h1>${anschrift}</h1>
       <p class="subhead"><span class="subhead-lead">Individueller Bauablauf.</span>Der Best&auml;tigungszeitpunkt richtet sich unabh&auml;ngig von der Baubewilligung nach dem vorgesehenen Bauablauf. Sollte sich die Baubewilligung verz&ouml;gern, bleibt der Termin f&uuml;r die Best&auml;tigung bestehen. So k&ouml;nnen Bestellungen und weitere Vorbereitungen rechtzeitig ausgel&ouml;st werden.</p>
     </div>
-    <div class="controls">
-      <button class="scroll-btn" id="btn-prev" aria-label="Vorheriger Meilenstein"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
-      <button class="scroll-btn" id="btn-next" aria-label="N&auml;chster Meilenstein"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
-    </div>
   </div>
   <div class="nav-hint">
     <span class="hint-pointer">Navigation</span>
     <span class="keys hint-pointer"><kbd>&larr;</kbd><kbd>&rarr;</kbd></span>
     <span class="hint-pointer">oder Ziehen mit der Maus</span>
-    <span class="hint-touch">&larr; Zeitstrahl wischen &rarr;</span>
+    <span class="hint-touch">&larr; Wischen &rarr;</span>
     <span class="today-badge" id="today-badge"><span class="pip"></span>wird berechnet&hellip;</span>
+    <div class="controls">
+      <button class="scroll-btn" id="btn-prev" aria-label="Vorheriger Meilenstein"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button class="scroll-btn" id="btn-next" aria-label="N&auml;chster Meilenstein"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
   </div>
 </header>
 
