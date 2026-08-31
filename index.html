@@ -1527,18 +1527,43 @@ ${buildTimelineBody(state)}
          line/text artwork. */
       const imgData = canvas.toDataURL('image/jpeg', 0.95);
       const { jsPDF } = window.jspdf;
-      /* The timeline's own proportions don't match strict A4 (297×210mm),
-         and forcing that ratio meant either white bars (fit-inside) or
-         cropping real content off the edge (cover-fill) — neither is
-         right. Instead the page is A4-landscape WIDTH, but its height is
-         derived from the capture's own aspect ratio, so the full,
-         uncropped timeline fills the entire page with nothing left over. */
-      const A4_LANDSCAPE_WIDTH_PT = 841.89;
+
+      /* the page is a true A4 landscape sheet (841.89 × 595.28pt). The
+         timeline is proportionally wider than A4, so it is scaled to fit
+         INSIDE the sheet — never cropped — and then centred on both axes,
+         which is what makes the top and bottom margins exactly equal.
+         (The general form below also handles a capture that is taller
+         than A4, where it fits to height and centres left/right instead.) */
+      const A4_W = 841.89;
+      const A4_H = 595.28;
       const ratio = canvas.width / canvas.height;
-      const pageWidth = A4_LANDSCAPE_WIDTH_PT;
-      const pageHeight = pageWidth / ratio;
-      const pdf = new jsPDF({ unit: 'pt', format: [pageWidth, pageHeight], orientation: 'landscape' });
-      pdf.addImage(imgData, 'JPEG', 0, 0, pageWidth, pageHeight);
+      let drawW, drawH;
+      if (ratio >= A4_W / A4_H) {
+        drawW = A4_W;
+        drawH = A4_W / ratio;
+      } else {
+        drawH = A4_H;
+        drawW = A4_H * ratio;
+      }
+      const offsetX = (A4_W - drawW) / 2;
+      const offsetY = (A4_H - drawH) / 2;
+
+      const pdf = new jsPDF({ unit: 'pt', format: 'a4', orientation: 'landscape' });
+
+      /* paint the whole sheet in the timeline's own background colour first,
+         so the bands left over by the centring read as part of the design
+         instead of as white strips above and below a dark page. Taken from
+         the rendered document rather than hard-coded, so it stays correct
+         if either skin's background ever changes. */
+      let pageBg = [255, 255, 255];
+      try {
+        const m = frame.contentWindow.getComputedStyle(fdoc.body).backgroundColor.match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+        if (m) pageBg = [Number(m[1]), Number(m[2]), Number(m[3])];
+      } catch (e) { /* keep the white default */ }
+      pdf.setFillColor(pageBg[0], pageBg[1], pageBg[2]);
+      pdf.rect(0, 0, A4_W, A4_H, 'F');
+
+      pdf.addImage(imgData, 'JPEG', offsetX, offsetY, drawW, drawH);
       pdf.save(exportName().toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_bauablauf.pdf');
     } finally {
       if (frame && frame.parentNode) frame.parentNode.removeChild(frame);
