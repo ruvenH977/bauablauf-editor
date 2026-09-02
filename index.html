@@ -48,11 +48,11 @@
     --panel-line: #e2e4db;
     --panel-text: #1d1e1c;
     --panel-muted: #6b6d67;
-    --panel-accent: #5c7d0c;
+    --panel-accent: #96c814;
     --panel-accent-bright: #96c814;
-    --panel-active: #5c7d0c;
+    --panel-active: #96c814;
     --panel-on-accent: #ffffff;
-    --panel-on-bright: #1d1e1c;
+    --panel-on-bright: #ffffff;
     --panel-preview-bg: #e7eade;
     --panel-frame-bg: #ffffff;
     --panel-font: 'Obibok', -apple-system, 'Segoe UI', Arial, sans-serif;
@@ -185,14 +185,56 @@
     font-weight: 700;
     cursor: pointer;
   }
-  #btn-html { background: var(--panel-accent); color: var(--panel-on-accent); }
+  #btn-html { background: var(--panel-accent-bright); color: var(--panel-on-bright); }
   #btn-pdf { background: var(--panel-accent-bright); color: var(--panel-on-bright); }
   .downloads button:active { transform: scale(0.98); }
   .downloads button:disabled { opacity: 0.6; cursor: default; }
+  /* the browser default range track is a solid light bar: glaringly bright
+     on the dark MDH panel and muddy on the light freshhaus one. Styled here
+     like the text inputs instead — a hairline border, no fill — so it reads
+     the same in both themes. accent-color is dropped deliberately: it would
+     re-introduce the filled track it is meant to replace. */
   input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
     width: 100%;
-    accent-color: var(--panel-accent);
+    height: 18px;
+    background: transparent;
+    cursor: pointer;
+    margin: 2px 0;
   }
+  input[type="range"]::-webkit-slider-runnable-track {
+    box-sizing: border-box;
+    height: 8px;
+    background: transparent;
+    border: 1px solid var(--panel-line);
+    border-radius: 999px;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    margin-top: -3px;
+    border: none;
+    border-radius: 50%;
+    background: var(--panel-accent);
+  }
+  input[type="range"]::-moz-range-track {
+    box-sizing: border-box;
+    height: 8px;
+    background: transparent;
+    border: 1px solid var(--panel-line);
+    border-radius: 999px;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border: none;
+    border-radius: 50%;
+    background: var(--panel-accent);
+  }
+  input[type="range"]:focus-visible { outline: 2px solid var(--panel-accent); outline-offset: 2px; }
   .reset-btn {
     margin-top: 8px;
     padding: 6px 10px;
@@ -230,7 +272,7 @@
     <div class="field-group">
       <h2>Design</h2>
       <div class="style-toggle">
-        <button id="style-mdh" class="active" type="button">MDH</button>
+        <button id="style-mdh" class="active" type="button">mdh</button>
         <button id="style-fh" type="button">freshhaus</button>
       </div>
     </div>
@@ -465,9 +507,14 @@
       const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
       const dayNum = d.getUTCDay() || 7;
       d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      /* after shifting to this week's Thursday, the calendar year IS the
+         ISO week-numbering year — which is what the week start has to be
+         built from, since e.g. 1 Jan can still belong to KW 52/53 of the
+         previous year. */
+      const isoYear = d.getUTCFullYear();
+      const yearStart = new Date(Date.UTC(isoYear, 0, 1));
       const week = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
-      return { week: week, isoDay: dayNum };
+      return { week: week, isoYear: isoYear, isoDay: dayNum };
     }
 
     function isoWeekToMonday(year, week) {
@@ -518,8 +565,14 @@
 
     function updateTodayDot() {
       const now = new Date();
-      const nowMs = now.getTime();
       const info = isoWeekInfo(now);
+      /* anchored to the MONDAY of the current week, not to the exact moment
+         now. Every other mark on this timeline — the milestone nodes, the
+         Bemusterungstage ticks, the year marker — is placed at the start of
+         its calendar week, so using the live timestamp put "Heute" days
+         further along than a Bemusterungstag in the very same KW. Same
+         unit for everything means KW 36 lines up with KW 36. */
+      const nowMs = isoWeekToMonday(info.isoYear, info.week);
 
       if (todayBadge) {
         todayBadge.innerHTML = '<span class="pip"></span>Heute &middot; KW <b>' + info.week + '</b>';
@@ -576,7 +629,7 @@
         if (BEMUSTERUNG_MODE === 'range') {
           const bStartX = interpolateX(bemusterungStartMs, points);
           const bEndX = interpolateX(bemusterungEndMs, points);
-          const bWidth = bEndX - bStartX;
+          const bWidth = Math.max(0, bEndX - bStartX);
           bemusterungMarker.style.left = bStartX + 'px';
           if (bemusterungEndTick) bemusterungEndTick.style.left = bWidth + 'px';
           if (bemusterungLine) bemusterungLine.style.width = bWidth + 'px';
@@ -796,9 +849,15 @@
 
   function bemusterungJs(state) {
     if (state.bemusterung.mode === 'range') {
+      /* the END anchor is the start of the end week itself, NOT the Monday
+         after it. Every indicator on this timeline marks a KW by its own
+         starting point — Heute, the single Bemusterungstag, the milestone
+         nodes — so a range ending in KW 36 has to end exactly where a
+         Heute in KW 36 sits. Running it to the following Monday drew the
+         bar a full week past anything else marking that same KW. */
       return `const BEMUSTERUNG_MODE = 'range';
     const bemusterungStartMs = isoWeekToMonday(${state.bemusterung.startYear}, ${state.bemusterung.startWeek});
-    const bemusterungEndMs = isoWeekToMonday(${state.bemusterung.endYear}, ${state.bemusterung.endWeek + 1});`;
+    const bemusterungEndMs = isoWeekToMonday(${state.bemusterung.endYear}, ${state.bemusterung.endWeek});`;
     }
     return `const BEMUSTERUNG_MODE = 'single';
     const bemusterungMs = isoWeekToMonday(${state.bemusterung.startYear}, ${state.bemusterung.startWeek});`;
