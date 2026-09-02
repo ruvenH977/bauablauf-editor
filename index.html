@@ -11,6 +11,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
+  /* only needed for the freshhaus panel theme; the MDH panel keeps the
+     system stack it has always used. Loaded from freshhaus.ch exactly as
+     the generated freshhaus timeline does, with a solid fallback. */
+  @font-face { font-family: 'Obibok'; src: url('https://www.freshhaus.ch/_assets/535baf2d2c5e492bfcadf9e13e6ea7e1/Fonts/Obibok-Regular.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+  @font-face { font-family: 'Obibok'; src: url('https://www.freshhaus.ch/_assets/535baf2d2c5e492bfcadf9e13e6ea7e1/Fonts/Obibok-Bold.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+
+  /* MDH (default): dark anthracite + copper, mirroring the MDH timeline */
   :root {
     --panel-bg: #2b2a29;
     --panel-bg-2: #393737;
@@ -21,15 +28,44 @@
     --panel-accent: #a3775c;
     --panel-accent-bright: #c7a688;
     --panel-active: #5c4636;
+    --panel-on-accent: #ffffff;
+    --panel-on-bright: #2b2a29;
+    --panel-preview-bg: #000000;
+    --panel-frame-bg: #2b2a29;
+    --panel-font: -apple-system, 'Segoe UI', Arial, sans-serif;
+  }
+
+  /* freshhaus: the same values the generated freshhaus timeline uses, so
+     the editor reads as the same product as the page it is producing.
+     --panel-accent is the deep lime (#5c7d0c) rather than the signature
+     #96c814: the bright lime is a background colour in that palette and
+     white text on it is unreadable, so the bright one is used for exactly
+     that — a light fill carrying dark text. */
+  body.theme-fh {
+    --panel-bg: #ffffff;
+    --panel-bg-2: #f5f6f1;
+    --panel-bg-3: #ebeee2;
+    --panel-line: #e2e4db;
+    --panel-text: #1d1e1c;
+    --panel-muted: #6b6d67;
+    --panel-accent: #5c7d0c;
+    --panel-accent-bright: #96c814;
+    --panel-active: #5c7d0c;
+    --panel-on-accent: #ffffff;
+    --panel-on-bright: #1d1e1c;
+    --panel-preview-bg: #e7eade;
+    --panel-frame-bg: #ffffff;
+    --panel-font: 'Obibok', -apple-system, 'Segoe UI', Arial, sans-serif;
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0;
     padding: 0;
     height: 100%;
-    font-family: -apple-system, 'Segoe UI', Arial, sans-serif;
+    font-family: var(--panel-font);
     background: var(--panel-bg);
     color: var(--panel-text);
+    transition: background 0.25s ease, color 0.25s ease;
   }
   .app {
     display: flex;
@@ -99,7 +135,7 @@
   }
   .style-toggle button.active {
     border-color: var(--panel-accent);
-    color: #fff;
+    color: var(--panel-on-accent);
     background: var(--panel-active);
   }
   .mode-toggle {
@@ -119,7 +155,7 @@
   }
   .mode-toggle button.active {
     border-color: var(--panel-accent);
-    color: #fff;
+    color: var(--panel-on-accent);
     background: var(--panel-active);
   }
   .milestone-block {
@@ -149,8 +185,8 @@
     font-weight: 700;
     cursor: pointer;
   }
-  #btn-html { background: var(--panel-accent); color: #fff; }
-  #btn-pdf { background: var(--panel-accent-bright); color: #2b2a29; }
+  #btn-html { background: var(--panel-accent); color: var(--panel-on-accent); }
+  #btn-pdf { background: var(--panel-accent-bright); color: var(--panel-on-bright); }
   .downloads button:active { transform: scale(0.98); }
   .downloads button:disabled { opacity: 0.6; cursor: default; }
   input[type="range"] {
@@ -170,15 +206,18 @@
   .reset-btn:hover { color: var(--panel-text); border-color: var(--panel-accent); }
   .preview {
     flex: 1;
-    background: #000;
+    background: var(--panel-preview-bg);
     position: relative;
+    transition: background 0.25s ease;
   }
   .preview iframe {
     width: 100%;
     height: 100%;
     border: none;
     display: block;
-    background: #fff;
+    /* matches the timeline being previewed, so re-rendering does not flash
+       white behind the dark MDH page */
+    background: var(--panel-frame-bg);
   }
 </style>
 </head>
@@ -199,8 +238,7 @@
     <div class="field-group">
       <h2>Projekt</h2>
       <div class="field" id="field-project-name">
-        <label for="input-project-name">Projektname</label>
-        <input type="text" id="input-project-name" value="Musterprojekt">
+        <div><div class="kw-label">Projektname</div><input type="text" id="input-project-name" value="Musterprojekt"></div>
       </div>
       <div class="row2" style="margin-top:12px;">
         <div><div class="kw-label">Anrede</div><input type="text" id="input-anschrift-1" value="Familie"></div>
@@ -1403,11 +1441,17 @@ ${buildTimelineBody(state)}
     els.frame.srcdoc = previewHtml();
   }
 
+  /* the editor panel wears the same brand as the timeline being edited */
+  function applyPanelTheme() {
+    document.body.classList.toggle('theme-fh', state.style === 'fh');
+  }
+
   els.styleMdh.addEventListener('click', () => {
     state.style = 'mdh';
     els.styleMdh.classList.add('active');
     els.styleFh.classList.remove('active');
     els.fieldProjectName.style.display = '';
+    applyPanelTheme();
     render();
   });
   els.styleFh.addEventListener('click', () => {
@@ -1415,6 +1459,7 @@ ${buildTimelineBody(state)}
     els.styleFh.classList.add('active');
     els.styleMdh.classList.remove('active');
     els.fieldProjectName.style.display = 'none';
+    applyPanelTheme();
     render();
   });
 
@@ -1573,6 +1618,7 @@ ${buildTimelineBody(state)}
   });
 
   els.fieldProjectName.style.display = '';
+  applyPanelTheme();
   render();
 })();
 </script>
